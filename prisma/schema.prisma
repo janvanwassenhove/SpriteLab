@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---- Auth.js Models ----
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+  fighterPacks  FighterPack[]
+  aiGenerations AIGeneration[]
+  aiUsage       AIUsageRecord[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---- App Models ----
+
+model Project {
+  id           String       @id @default(cuid())
+  userId       String?
+  name         String
+  canvasWidth  Int          @default(64)
+  canvasHeight Int          @default(64)
+  paletteId    String?
+  settings     Json?
+  sprites      Sprite[]
+  animations   AnimationRecord[]
+  fighterPacks FighterPack[]
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Sprite {
+  id        String  @id @default(cuid())
+  projectId String
+  name      String
+  width     Int
+  height    Int
+  layers    Json    // Layer[] serialized
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  fighterPackBase FighterPack[] @relation("baseSprite")
+  animationFrames AnimationFrame[]
+}
+
+model AnimationRecord {
+  id        String  @id @default(cuid())
+  projectId String
+  name      String
+  loop      String  @default("loop") // "loop" | "ping-pong" | "once"
+  frames    AnimationFrame[]
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  fighterPackAnimations FighterPackAnimation[]
+}
+
+model AnimationFrame {
+  id          String  @id @default(cuid())
+  animationId String
+  spriteId    String
+  order       Int
+  delay       Int     @default(100) // ms
+  hitboxes    Json?   // Hitbox[] serialized
+  animation   AnimationRecord @relation(fields: [animationId], references: [id], onDelete: Cascade)
+  sprite      Sprite  @relation(fields: [spriteId], references: [id], onDelete: Cascade)
+}
+
+model FighterPack {
+  id                    String   @id @default(cuid())
+  projectId             String
+  userId                String?
+  name                  String
+  baseCharacterSpriteId String?
+  status                String   @default("draft") // draft | generating | review | complete
+  animations            FighterPackAnimation[]
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                  User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baseSprite            Sprite?  @relation("baseSprite", fields: [baseCharacterSpriteId], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model FighterPackAnimation {
+  id            String @id @default(cuid())
+  fighterPackId String
+  animationType String // AnimationType enum value
+  animationId   String?
+  status        String @default("pending") // pending | generating | done | needs-review
+  fighterPack   FighterPack     @relation(fields: [fighterPackId], references: [id], onDelete: Cascade)
+  animation     AnimationRecord? @relation(fields: [animationId], references: [id])
+}
+
+model AIGeneration {
+  id             String   @id @default(cuid())
+  userId         String?
+  provider       String   // openai | gemini | stable-diffusion
+  prompt         String   @db.Text
+  parameters     Json?
+  resultImageUrl String?
+  cost           Float?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+}
+
+model AIUsageRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  provider   String
+  cost       Float
+  date       DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
