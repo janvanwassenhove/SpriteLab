@@ -11,6 +11,9 @@ on:
       - "src/app/**"
       - "e2e/screenshots.spec.ts"
 
+permissions:
+  contents: write
+
 jobs:
   capture:
     name: Capture application screenshots
@@ -20,6 +23,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
