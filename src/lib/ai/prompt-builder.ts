@@ -1,4 +1,4 @@
-import { AnimationType, type AnimationTemplate } from "@/types";
+import { AnimationType } from "@/types";
 
 /** Prompt templates for generating specific animation types from a base character. */
 
@@ -20,11 +20,11 @@ const ANIMATION_POSE_DESCRIPTIONS: Record<AnimationType, string> = {
   [AnimationType.RUN]: "Character running forward with urgent momentum",
   [AnimationType.JUMP]: "Character performing a vertical jump",
   [AnimationType.CROUCH]: "Character crouching down into a low defensive position",
-  [AnimationType.PUNCH]: "Character throwing a straight punch attack",
-  [AnimationType.KICK]: "Character performing a mid-height kick attack",
-  [AnimationType.SPECIAL]: "Character performing a special energy attack with dramatic effect",
-  [AnimationType.HURT]: "Character being hit and recoiling in pain",
-  [AnimationType.KO]: "Character being knocked out and falling to the ground",
+  [AnimationType.PUNCH]: "Character extending one arm in a dynamic martial-arts strike pose",
+  [AnimationType.KICK]: "Character extending one leg in a dynamic martial-arts pose",
+  [AnimationType.SPECIAL]: "Character channeling stylized energy with dramatic motion",
+  [AnimationType.HURT]: "Character reacting to impact with a brief stagger",
+  [AnimationType.KO]: "Character losing balance and dropping into a grounded pose",
   [AnimationType.BLOCK]: "Character raising arms in a defensive blocking pose",
   [AnimationType.INTRO]: "Character entering the stage with a dramatic entrance pose",
   [AnimationType.WIN]: "Character celebrating victory with a triumphant pose",
@@ -46,24 +46,24 @@ function getFrameDescription(type: AnimationType, frame: number, total: number):
       if (progress < 0.8) return "at peak of jump, arms up";
       return "descending, preparing to land";
     case AnimationType.PUNCH:
-      if (progress < 0.3) return "winding up, pulling fist back";
-      if (progress < 0.6) return "extending fist forward, full punch";
-      return "retracting fist, returning to stance";
+      if (progress < 0.3) return "drawing the arm back for a fast striking pose";
+      if (progress < 0.6) return "arm fully extended in a clean action silhouette";
+      return "bringing the arm back to the ready stance";
     case AnimationType.KICK:
-      if (progress < 0.3) return "lifting leg, preparing kick";
-      if (progress < 0.6) return "leg fully extended in kick";
-      return "retracting leg, returning to stance";
+      if (progress < 0.3) return "lifting the leg into position";
+      if (progress < 0.6) return "leg fully extended in a clean action silhouette";
+      return "lowering the leg and returning to stance";
     case AnimationType.SPECIAL:
       if (progress < 0.3) return "gathering energy, glowing effect beginning";
-      if (progress < 0.6) return "releasing energy attack, maximum effect";
+      if (progress < 0.6) return "energy effect at full intensity, maximum motion";
       return "energy dissipating, returning to stance";
     case AnimationType.HURT:
-      if (progress < 0.5) return "initial impact, head snapping back";
-      return "recoiling from hit, stumbling";
+      if (progress < 0.5) return "brief stagger with upper body leaning back";
+      return "recovering balance and resetting footing";
     case AnimationType.KO:
-      if (progress < 0.3) return "heavy impact, body arching back";
-      if (progress < 0.7) return "falling backwards/sideways";
-      return "lying on ground, defeated";
+      if (progress < 0.3) return "losing balance with the body tilting back";
+      if (progress < 0.7) return "dropping into a low grounded pose";
+      return "resting in a grounded end pose";
     case AnimationType.BLOCK:
       return progress < 0.5 ? "raising guard, arms coming up" : "holding block position firmly";
     case AnimationType.INTRO:

@@ -2,8 +2,6 @@
 
 import { useWizardStore, getSpriteSize } from "@/stores/wizard-store";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { ANIMATION_TEMPLATES } from "@/lib/fighter-pack/templates";
 import { estimateFighterPackCost, formatCost } from "@/lib/ai/cost-estimator";
 import type { AIProvider, GeminiModel, OpenAIModel } from "@/types";
 import { DollarSign, Zap, Palette, Info } from "lucide-react";
@@ -11,7 +9,7 @@ import { GEMINI_MODELS } from "@/lib/ai/gemini-service";
 import { OPENAI_MODELS } from "@/lib/ai/openai-service";
 
 const PROVIDERS: { value: AIProvider; label: string; desc: string }[] = [
-  { value: "openai", label: "OpenAI (gpt-image-1)", desc: "Best quality, higher cost" },
+  { value: "openai", label: "OpenAI", desc: "Choose GPT Image 1 or DALL-E below" },
   { value: "gemini", label: "Google Gemini", desc: "Good quality, lower cost" },
 ];
 

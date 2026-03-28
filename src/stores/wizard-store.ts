@@ -240,6 +240,7 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       provider: "openai",
       quality: "medium",
       geminiModel: DEFAULT_GEMINI_MODEL,
+      openaiModel: DEFAULT_OPENAI_MODEL,
       isGenerating: false,
       animationProgress: [],
       generatedFrames: [],

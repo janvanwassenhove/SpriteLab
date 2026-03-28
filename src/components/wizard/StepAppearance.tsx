@@ -33,6 +33,8 @@ export function StepAppearance() {
   const isGeneratingBase = useWizardStore((s) => s.isGeneratingBase);
   const setIsGeneratingBase = useWizardStore((s) => s.setIsGeneratingBase);
   const provider = useWizardStore((s) => s.provider);
+  const geminiModel = useWizardStore((s) => s.geminiModel);
+  const openaiModel = useWizardStore((s) => s.openaiModel);
   const uploadedImage = useWizardStore((s) => s.uploadedImage);
   const processedImage = useWizardStore((s) => s.processedImage);
   const setProcessedImage = useWizardStore((s) => s.setProcessedImage);
@@ -119,6 +121,8 @@ export function StepAppearance() {
           quality: "high",
           width: spriteSize,
           height: spriteSize,
+          geminiModel: provider === "gemini" ? geminiModel : undefined,
+          openaiModel: provider === "openai" ? openaiModel : undefined,
         }),
       });
 

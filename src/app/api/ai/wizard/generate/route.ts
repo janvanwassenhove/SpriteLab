@@ -52,9 +52,10 @@ export async function POST(req: NextRequest) {
     const safeWidth = Math.min(Math.max(16, width || 64), 1024);
     const safeHeight = Math.min(Math.max(16, height || 64), 1024);
 
-    // Analyze the base sprite to extract detailed character appearance for consistency
+    // Only use Gemini vision analysis when Gemini is the selected generator.
+    // OpenAI runs should not depend on the Google API.
     let characterAnalysis = "";
-    if (referenceImage) {
+    if (referenceImage && provider === "gemini") {
       try {
         characterAnalysis = await analyzeSprite(referenceImage);
       } catch (err) {
