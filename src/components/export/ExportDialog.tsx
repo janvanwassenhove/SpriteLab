@@ -13,6 +13,8 @@ import { useProjectStore } from "@/stores/project-store";
 import { useEditorStore } from "@/stores/editor-store";
 import { flattenLayers } from "@/lib/canvas/layer";
 import { downloadBlob } from "@/lib/export/bundle";
+import { packSpriteSheet, imageDataToBlob } from "@/lib/export/sprite-sheet";
+import { createAnimatedGif } from "@/lib/export/gif";
 
 interface ExportDialogProps {
   open: boolean;
@@ -46,37 +48,21 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
     setProgress(20);
 
     try {
-      const frames = getFrameImageData();
-      if (frames.length === 0) return;
+      if (!currentAnimation || currentAnimation.frames.length === 0) return;
 
       setProgress(50);
 
-      const res = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: "spritesheet",
-          frames: frames.map((f) => ({
-            data: Array.from(f.data),
-            width: f.width,
-            height: f.height,
-          })),
-          width: canvasWidth,
-          height: canvasHeight,
-          layout,
-        }),
-      });
+      const { imageData } = packSpriteSheet(
+        currentAnimation.frames,
+        canvasWidth,
+        canvasHeight,
+        layout
+      );
 
       setProgress(80);
 
-      if (!res.ok) throw new Error("Export failed");
-      const { dataUrl } = await res.json();
-
-      // Download
-      const link = document.createElement("a");
-      link.download = `${currentAnimation?.name ?? "spritesheet"}.png`;
-      link.href = dataUrl;
-      link.click();
+      const blob = await imageDataToBlob(imageData);
+      downloadBlob(blob, `${currentAnimation.name ?? "spritesheet"}.png`);
 
       setProgress(100);
     } catch (err) {
@@ -93,37 +79,24 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
     setProgress(20);
 
     try {
-      const frames = getFrameImageData();
-      if (frames.length === 0) return;
+      if (!currentAnimation || currentAnimation.frames.length === 0) return;
 
       setProgress(50);
 
-      const res = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: "gif",
-          frames: frames.map((f) => ({
-            data: Array.from(f.data),
-            width: f.width,
-            height: f.height,
-          })),
-          width: canvasWidth,
-          height: canvasHeight,
-          delay: gifDelay,
-          scale,
-        }),
+      const framesWithDelay = currentAnimation.frames.map((f) => ({
+        ...f,
+        delay: gifDelay,
+      }));
+
+      const blob = await createAnimatedGif(framesWithDelay, {
+        width: canvasWidth,
+        height: canvasHeight,
+        scale,
       });
 
       setProgress(80);
 
-      if (!res.ok) throw new Error("Export failed");
-      const { dataUrl } = await res.json();
-
-      const link = document.createElement("a");
-      link.download = `${currentAnimation?.name ?? "animation"}.gif`;
-      link.href = dataUrl;
-      link.click();
+      downloadBlob(blob, `${currentAnimation.name ?? "animation"}.gif`);
 
       setProgress(100);
     } catch (err) {

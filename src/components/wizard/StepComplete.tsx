@@ -11,21 +11,40 @@ import {
   CheckCircle,
   Download,
   Edit3,
+  Loader2,
   Play,
   Pause,
+  RefreshCw,
   RotateCcw,
 } from "lucide-react";
+import { saveWizardResult } from "@/lib/storage/local-db";
 
 export function StepComplete() {
   const router = useRouter();
   const characterName = useWizardStore((s) => s.characterName);
+  const characterDescription = useWizardStore((s) => s.characterDescription);
+  const characterStyle = useWizardStore((s) => s.characterStyle);
   const artStyle = useWizardStore((s) => s.artStyle);
+  const provider = useWizardStore((s) => s.provider);
+  const quality = useWizardStore((s) => s.quality);
+  const keyFramesOnly = useWizardStore((s) => s.keyFramesOnly);
+  const baseSprite = useWizardStore((s) => s.baseSprite);
+  const geminiModel = useWizardStore((s) => s.geminiModel);
+  const openaiModel = useWizardStore((s) => s.openaiModel);
   const animationProgress = useWizardStore((s) => s.animationProgress);
   const generatedFrames = useWizardStore((s) => s.generatedFrames);
+  const updateAnimationProgress = useWizardStore((s) => s.updateAnimationProgress);
+  const addGeneratedFrame = useWizardStore((s) => s.addGeneratedFrame);
+  const regenerateAnimation = useWizardStore((s) => s.regenerateAnimation);
   const reset = useWizardStore((s) => s.reset);
 
+  const [regeneratingAnim, setRegeneratingAnim] = useState<AnimationType | null>(null);
+
   const spriteSize = getSpriteSize(artStyle);
-  const completedAnims = animationProgress.filter((ap) => ap.status === "done");
+  const completedAnims = animationProgress.filter(
+    (ap) => ap.status === "done" || ap.status === "generating"
+  );
+  const stableCompletedAnims = animationProgress.filter((ap) => ap.status === "done");
   const [previewAnim, setPreviewAnim] = useState<AnimationType | null>(
     completedAnims[0]?.type ?? null
   );
@@ -56,7 +75,7 @@ export function StepComplete() {
     return cleanup;
   }, [animatePreview]);
 
-  function openInEditor() {
+  async function openInEditor() {
     const projectId = uuid();
     const size = spriteSize;
     const entries = JSON.parse(localStorage.getItem("sprite-projects") ?? "[]");
@@ -68,11 +87,11 @@ export function StepComplete() {
       createdAt: new Date().toISOString(),
     });
     localStorage.setItem("sprite-projects", JSON.stringify(entries));
-    // Store generated frames for the editor to pick up
-    localStorage.setItem(
-      `wizard-result-${projectId}`,
-      JSON.stringify({ frames: generatedFrames, animations: completedAnims.map((a) => a.type) })
-    );
+    // Store generated frames in IndexedDB (too large for localStorage)
+    await saveWizardResult(projectId, {
+      frames: generatedFrames,
+      animations: stableCompletedAnims.map((a) => a.type),
+    });
     reset();
     router.push(`/editor/${projectId}?w=${size}&h=${size}&name=${encodeURIComponent(characterName)}`);
   }
@@ -80,6 +99,95 @@ export function StepComplete() {
   function startOver() {
     reset();
     router.push("/wizard");
+  }
+
+  async function handleRegenerateAnimation(animType: AnimationType) {
+    if (regeneratingAnim) return;
+    setRegeneratingAnim(animType);
+    regenerateAnimation(animType);
+    updateAnimationProgress(animType, { status: "generating", progress: 0 });
+
+    // If the preview was showing this animation, reset frame index
+    if (previewAnim === animType) setCurrentFrameIdx(0);
+
+    try {
+      const response = await fetch("/api/ai/wizard/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fighterName: characterName,
+          description: characterDescription,
+          characterStyle,
+          provider,
+          quality,
+          keyFramesOnly,
+          animations: [animType],
+          width: spriteSize,
+          height: spriteSize,
+          referenceImage: baseSprite ?? undefined,
+          geminiModel: provider === "gemini" ? geminiModel : undefined,
+          openaiModel: provider === "openai" ? openaiModel : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Regeneration failed");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.animationType === animType) {
+                if (data.status === "done") {
+                  updateAnimationProgress(animType, { status: "done", progress: 100 });
+                } else if (data.status === "error") {
+                  updateAnimationProgress(animType, {
+                    status: "error",
+                    error: data.error,
+                    progress: data.progress ?? 0,
+                  });
+                } else if (data.status === "generating") {
+                  updateAnimationProgress(animType, {
+                    status: "generating",
+                    progress: data.progress ?? 0,
+                  });
+                }
+
+                if (data.frameData) {
+                  addGeneratedFrame({
+                    animationType: animType,
+                    frameIndex: data.frameIndex ?? 0,
+                    imageData: data.frameData,
+                  });
+                }
+              }
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Regeneration failed";
+      updateAnimationProgress(animType, { status: "error", error: message });
+    } finally {
+      setRegeneratingAnim(null);
+    }
   }
 
   return (
@@ -90,7 +198,7 @@ export function StepComplete() {
         </div>
         <h2 className="text-2xl font-bold mb-1">Character Complete!</h2>
         <p className="text-zinc-400 text-sm">
-          {characterName} is ready with {completedAnims.length} animations.
+          {characterName} is ready with {stableCompletedAnims.length} animations.
         </p>
       </div>
 
@@ -162,7 +270,26 @@ export function StepComplete() {
                   <span className="text-sm font-medium text-zinc-200">{tmpl.label}</span>
                   <p className="text-xs text-zinc-500">{frames.length} frames</p>
                 </div>
-                <CheckCircle className="h-4 w-4 text-green-500 ml-auto shrink-0" />
+                {ap.status === "generating" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-400 ml-auto shrink-0" />
+                ) : (
+                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title={`Regenerate ${tmpl.label}`}
+                      disabled={regeneratingAnim !== null}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRegenerateAnimation(ap.type);
+                      }}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-zinc-400 hover:text-zinc-200" />
+                    </Button>
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  </div>
+                )}
               </button>
             );
           })}
@@ -171,11 +298,11 @@ export function StepComplete() {
 
       {/* Actions */}
       <div className="flex gap-3 justify-center">
-        <Button onClick={openInEditor}>
+        <Button onClick={openInEditor} disabled={regeneratingAnim !== null}>
           <Edit3 className="h-4 w-4" />
           Open in Editor
         </Button>
-        <Button variant="outline" onClick={startOver}>
+        <Button variant="outline" onClick={startOver} disabled={regeneratingAnim !== null}>
           <RotateCcw className="h-4 w-4" />
           Create Another
         </Button>

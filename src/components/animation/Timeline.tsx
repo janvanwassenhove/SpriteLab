@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { useProjectStore } from "@/stores/project-store";
 import { useEditorStore } from "@/stores/editor-store";
@@ -17,14 +17,20 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  FilePlus2,
 } from "lucide-react";
 import { cn } from "@/utils";
-import type { Frame, Layer } from "@/types";
+import type { Animation, Frame, Layer } from "@/types";
 
 export function Timeline() {
+  const project = useProjectStore((s) => s.project);
   const currentAnimation = useProjectStore((s) => s.currentAnimation);
   const currentFrameIndex = useProjectStore((s) => s.currentFrameIndex);
   const setCurrentFrameIndex = useProjectStore((s) => s.setCurrentFrameIndex);
+  const setCurrentAnimation = useProjectStore((s) => s.setCurrentAnimation);
+  const syncCurrentAnimation = useProjectStore((s) => s.syncCurrentAnimation);
+  const addAnimation = useProjectStore((s) => s.addAnimation);
+  const deleteAnimation = useProjectStore((s) => s.deleteAnimation);
   const addFrame = useProjectStore((s) => s.addFrame);
   const deleteFrame = useProjectStore((s) => s.deleteFrame);
   const isPlaying = useProjectStore((s) => s.isPlaying);
@@ -36,6 +42,10 @@ export function Timeline() {
   const canvasHeight = useEditorStore((s) => s.canvasHeight);
   const setLayers = useEditorStore((s) => s.setLayers);
 
+  const [isAddingAnim, setIsAddingAnim] = useState(false);
+  const [newAnimName, setNewAnimName] = useState("");
+
+  const animations = project?.animations ?? [];
   const frames = currentAnimation?.frames ?? [];
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -125,8 +135,113 @@ export function Timeline() {
     setCurrentFrameIndex(Math.max(0, Math.min(idx, frames.length - 1)));
   }
 
+  function switchAnimation(animId: string) {
+    if (animId === currentAnimation?.id) return;
+    // Sync current edits back to project before switching
+    syncCurrentAnimation();
+    const anim = animations.find((a) => a.id === animId);
+    if (anim) {
+      setIsPlaying(false);
+      setCurrentAnimation(anim);
+    }
+  }
+
+  function handleAddAnimation() {
+    const trimmed = newAnimName.trim();
+    if (!trimmed) return;
+    const newLayer: Layer = {
+      id: uuid(),
+      name: "Layer 1",
+      data: createEmptyPixelData(canvasWidth, canvasHeight),
+      width: canvasWidth,
+      height: canvasHeight,
+      visible: true,
+      opacity: 1,
+      blendMode: "normal",
+    };
+    const newAnim: Animation = {
+      id: uuid(),
+      name: trimmed,
+      frames: [{ id: uuid(), layers: [newLayer], delay: 100 }],
+      loop: "loop",
+    };
+    syncCurrentAnimation();
+    addAnimation(newAnim);
+    setCurrentAnimation(newAnim);
+    setIsAddingAnim(false);
+    setNewAnimName("");
+  }
+
+  function handleDeleteAnimation() {
+    if (!currentAnimation || animations.length <= 1) return;
+    const id = currentAnimation.id;
+    const remaining = animations.filter((a) => a.id !== id);
+    deleteAnimation(id);
+    if (remaining.length > 0) {
+      setCurrentAnimation(remaining[0]);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-surface border-t border-border">
+      {/* Animation selector bar */}
+      <div className="flex items-center gap-1 px-2 py-1 border-b border-border shrink-0 overflow-x-auto">
+        {animations.map((anim) => (
+          <button
+            key={anim.id}
+            onClick={() => switchAnimation(anim.id)}
+            className={cn(
+              "shrink-0 px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+              anim.id === currentAnimation?.id
+                ? "bg-accent text-white"
+                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
+            )}
+          >
+            {anim.name}
+            <span className="ml-1 text-[9px] opacity-60">({anim.frames.length}f)</span>
+          </button>
+        ))}
+        {isAddingAnim ? (
+          <form
+            className="flex items-center gap-1 shrink-0"
+            onSubmit={(e) => { e.preventDefault(); handleAddAnimation(); }}
+          >
+            <input
+              autoFocus
+              value={newAnimName}
+              onChange={(e) => setNewAnimName(e.target.value)}
+              placeholder="Animation name"
+              className="h-5 w-28 text-[11px] bg-zinc-800 border border-zinc-600 rounded px-1.5 text-zinc-300 focus:outline-none focus:border-accent"
+              onKeyDown={(e) => { if (e.key === "Escape") { setIsAddingAnim(false); setNewAnimName(""); } }}
+            />
+            <Button type="submit" variant="ghost" size="icon" className="h-5 w-5" disabled={!newAnimName.trim()}>
+              <Plus className="h-3 w-3" />
+            </Button>
+          </form>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 shrink-0"
+            onClick={() => setIsAddingAnim(true)}
+            title="Add animation"
+          >
+            <FilePlus2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {animations.length > 1 && currentAnimation && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 shrink-0 text-zinc-500 hover:text-red-400"
+            onClick={handleDeleteAnimation}
+            title="Delete current animation"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+
       {/* Controls bar */}
       <div className="flex items-center gap-1 px-2 py-1 border-b border-border shrink-0">
         {/* Playback controls */}

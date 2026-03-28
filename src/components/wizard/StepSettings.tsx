@@ -33,9 +33,10 @@ export function StepSettings() {
   const artStyle = useWizardStore((s) => s.artStyle);
   const characterName = useWizardStore((s) => s.characterName);
   const baseSprite = useWizardStore((s) => s.baseSprite);
+  const frameCountOverrides = useWizardStore((s) => s.frameCountOverrides);
 
   const spriteSize = getSpriteSize(artStyle);
-  const costEstimate = estimateFighterPackCost(provider, selectedAnimations, keyFramesOnly, quality, provider === "gemini" ? geminiModel : undefined, provider === "openai" ? openaiModel : undefined);
+  const costEstimate = estimateFighterPackCost(provider, selectedAnimations, keyFramesOnly, quality, provider === "gemini" ? geminiModel : undefined, provider === "openai" ? openaiModel : undefined, frameCountOverrides);
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">

@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       referenceImage,
       geminiModel,
       openaiModel,
+      frameCountOverrides,
     }: {
       fighterName: string;
       description: string;
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
       referenceImage?: string;
       geminiModel?: GeminiModel;
       openaiModel?: OpenAIModel;
+      frameCountOverrides?: Partial<Record<AnimationType, number>>;
     } = body;
 
     if (!fighterName || !description || !animations?.length) {
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
       : "";
 
     const baseDescription = `${characterStyle} character pixel art sprite: ${fighterName}. ${description}.${consistencyDetails} You MUST maintain identical character design, colors, clothing, and proportions across all frames — only the pose changes.`;
-    const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly);
+    const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly, frameCountOverrides);
 
     // Group jobs by animation type
     const jobsByAnim = new Map<string, typeof jobs>();

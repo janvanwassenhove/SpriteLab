@@ -43,6 +43,31 @@ export function createEmptyPixelData(width: number, height: number): Uint8Clampe
   return new Uint8ClampedArray(width * height * 4);
 }
 
+/**
+ * Decode a base64 PNG into RGBA pixel data by drawing it onto an offscreen canvas.
+ */
+export function base64ToPixelData(
+  base64: string,
+  targetWidth: number,
+  targetHeight: number
+): Promise<Uint8ClampedArray> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+      const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+      resolve(new Uint8ClampedArray(imageData.data));
+    };
+    img.onerror = reject;
+    img.src = base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`;
+  });
+}
+
 export function getPixelIndex(x: number, y: number, width: number): number {
   return (y * width + x) * 4;
 }

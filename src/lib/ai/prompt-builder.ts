@@ -89,9 +89,18 @@ function getRunPhase(progress: number): string {
   return phases[Math.floor(progress * phases.length) % phases.length];
 }
 
-/** Get key frame indices for "key frames only" mode. Returns [first, peak, last]. */
-export function getKeyFrameIndices(totalFrames: number): number[] {
-  if (totalFrames <= 3) return Array.from({ length: totalFrames }, (_, i) => i);
-  const mid = Math.floor(totalFrames / 2);
-  return [0, mid, totalFrames - 1];
+/** Get key frame indices for "key frames only" mode.
+ *  Returns evenly-spaced indices including first and last.
+ *  @param totalFrames  – the template's total frame count (pose range)
+ *  @param desiredCount – how many key frames the user wants generated (defaults to 3)
+ */
+export function getKeyFrameIndices(totalFrames: number, desiredCount: number = 3): number[] {
+  const count = Math.max(1, Math.min(desiredCount, totalFrames));
+  if (count === 1) return [0];
+  if (count >= totalFrames) return Array.from({ length: totalFrames }, (_, i) => i);
+  const indices: number[] = [];
+  for (let i = 0; i < count; i++) {
+    indices.push(Math.round((i * (totalFrames - 1)) / (count - 1)));
+  }
+  return indices;
 }

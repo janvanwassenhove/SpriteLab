@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { ExportFormat } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      format,
+      format: rawFormat,
       frames,
       width,
       height,
@@ -13,7 +12,7 @@ export async function POST(req: NextRequest) {
       scale,
       layout,
     }: {
-      format: ExportFormat;
+      format: string;
       frames: { data: number[]; width: number; height: number }[];
       width: number;
       height: number;
@@ -21,6 +20,8 @@ export async function POST(req: NextRequest) {
       scale?: number;
       layout?: "auto" | "horizontal" | "vertical";
     } = body;
+
+    const format = rawFormat === "spritesheet" ? "sprite-sheet" : rawFormat;
 
     if (!format || !frames?.length) {
       return NextResponse.json(

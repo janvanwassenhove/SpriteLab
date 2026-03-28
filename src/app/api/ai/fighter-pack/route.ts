@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       animations,
       width,
       height,
+      frameCountOverrides,
     }: {
       fighterName: string;
       description: string;
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
       animations: AnimationType[];
       width: number;
       height: number;
+      frameCountOverrides?: Partial<Record<AnimationType, number>>;
     } = body;
 
     if (!fighterName || !description || !animations?.length) {
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const baseDescription = `${fighterName}: ${description}`;
-    const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly);
+    const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly, frameCountOverrides);
 
     // Group jobs by animation type for progress tracking
     const jobsByAnim = new Map<string, typeof jobs>();

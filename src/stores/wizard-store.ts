@@ -87,6 +87,8 @@ interface WizardStore {
   deselectAllAnimations: () => void;
   keyFramesOnly: boolean;
   toggleKeyFramesOnly: () => void;
+  frameCountOverrides: Partial<Record<AnimationType, number>>;
+  setFrameCount: (type: AnimationType, count: number) => void;
 
   // Step 4: Settings
   provider: AIProvider;
@@ -106,6 +108,7 @@ interface WizardStore {
   initAnimationProgress: () => void;
   updateAnimationProgress: (type: AnimationType, updates: Partial<AnimationProgress>) => void;
   addGeneratedFrame: (frame: GeneratedFrame) => void;
+  regenerateAnimation: (type: AnimationType) => void;
 
   // Step 6: Complete
   projectId: string | null;
@@ -177,6 +180,11 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
   deselectAllAnimations: () => set({ selectedAnimations: [] }),
   keyFramesOnly: true,
   toggleKeyFramesOnly: () => set((s) => ({ keyFramesOnly: !s.keyFramesOnly })),
+  frameCountOverrides: {},
+  setFrameCount: (type, count) =>
+    set((s) => ({
+      frameCountOverrides: { ...s.frameCountOverrides, [type]: count },
+    })),
 
   provider: "openai",
   quality: "medium",
@@ -216,6 +224,15 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
           : ap
       ),
     })),
+  regenerateAnimation: (type) =>
+    set((s) => ({
+      generatedFrames: s.generatedFrames.filter((f) => f.animationType !== type),
+      animationProgress: s.animationProgress.map((ap) =>
+        ap.type === type
+          ? { type, status: "pending", progress: 0, frames: [] }
+          : ap
+      ),
+    })),
 
   projectId: null,
   setProjectId: (id) => set({ projectId: id }),
@@ -237,6 +254,7 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       uploadRemoveBg: true,
       selectedAnimations: ANIMATION_TEMPLATES.map((t) => t.type),
       keyFramesOnly: true,
+      frameCountOverrides: {},
       provider: "openai",
       quality: "medium",
       geminiModel: DEFAULT_GEMINI_MODEL,

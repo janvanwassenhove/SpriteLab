@@ -17,6 +17,8 @@ import {
   CheckCircle,
   AlertCircle,
   DollarSign,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { ANIMATION_TEMPLATES, getTemplate } from "@/lib/fighter-pack/templates";
 import { estimateFighterPackCost, formatCost } from "@/lib/ai/cost-estimator";
@@ -36,6 +38,9 @@ export function FighterPackPanel() {
   const [selectedAnims, setSelectedAnims] = useState<AnimationType[]>(
     ANIMATION_TEMPLATES.map((t) => t.type)
   );
+  const [frameCountOverrides, setFrameCountOverrides] = useState<Partial<Record<AnimationType, number>>>(
+    {}
+  );
 
   const isGenerating = useAIStore((s) => s.isGenerating);
   const batchProgress = useAIStore((s) => s.batchProgress);
@@ -45,7 +50,7 @@ export function FighterPackPanel() {
   const canvasWidth = useEditorStore((s) => s.canvasWidth);
   const canvasHeight = useEditorStore((s) => s.canvasHeight);
 
-  const costEstimate = estimateFighterPackCost(provider, selectedAnims, keyFramesOnly, quality);
+  const costEstimate = estimateFighterPackCost(provider, selectedAnims, keyFramesOnly, quality, undefined, undefined, frameCountOverrides);
 
   function toggleAnim(type: AnimationType) {
     setSelectedAnims((prev) =>
@@ -74,6 +79,7 @@ export function FighterPackPanel() {
           animations: selectedAnims,
           width: canvasWidth,
           height: canvasHeight,
+          frameCountOverrides,
         }),
       });
 
@@ -290,31 +296,76 @@ export function FighterPackPanel() {
             {selectedAnims.length === ANIMATION_TEMPLATES.length ? "Deselect All" : "Select All"}
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-1">
+        <div className="grid grid-cols-2 gap-1.5">
           {ANIMATION_TEMPLATES.map((tmpl) => {
             const selected = selectedAnims.includes(tmpl.type);
             const progress = batchProgress.get(tmpl.type);
+            const customCount = frameCountOverrides[tmpl.type] ?? tmpl.defaultFrameCount;
 
             return (
-              <button
+              <div
                 key={tmpl.type}
-                onClick={() => !isGenerating && toggleAnim(tmpl.type)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${
+                className={`rounded-md border transition-colors ${
                   selected
-                    ? "bg-zinc-700 text-zinc-200 border border-zinc-600"
-                    : "bg-zinc-800/50 text-zinc-500 border border-transparent"
+                    ? "bg-zinc-700/60 text-zinc-200 border-zinc-600"
+                    : "bg-zinc-800/50 text-zinc-500 border-transparent"
                 }`}
               >
-                {progress !== undefined ? (
-                  progress >= 100 ? (
-                    <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                {/* Toggle row */}
+                <button
+                  onClick={() => !isGenerating && toggleAnim(tmpl.type)}
+                  className="flex items-center gap-1.5 w-full px-2 pt-1.5 pb-0.5 text-xs"
+                >
+                  {progress !== undefined ? (
+                    progress >= 100 ? (
+                      <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 animate-spin text-indigo-400 shrink-0" />
+                    )
                   ) : (
-                    <Loader2 className="h-3 w-3 animate-spin text-indigo-400 shrink-0" />
-                  )
-                ) : null}
-                <span className="truncate">{tmpl.label}</span>
-                <span className="text-[9px] text-zinc-500 ml-auto">{tmpl.defaultFrameCount}f</span>
-              </button>
+                    <div
+                      className={`w-3 h-3 rounded-sm shrink-0 border ${
+                        selected
+                          ? "bg-indigo-500 border-indigo-500"
+                          : "border-zinc-600"
+                      }`}
+                    />
+                  )}
+                  <span className="truncate font-medium">{tmpl.label}</span>
+                </button>
+
+                {/* Frame stepper */}
+                <div className="flex items-center justify-end gap-0.5 px-1.5 pb-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (customCount > 1) {
+                        setFrameCountOverrides((prev) => ({ ...prev, [tmpl.type]: customCount - 1 }));
+                      }
+                    }}
+                    disabled={isGenerating || customCount <= 1}
+                    className="w-4 h-4 rounded flex items-center justify-center bg-zinc-800 hover:bg-zinc-600 text-zinc-400 transition-colors disabled:opacity-30"
+                  >
+                    <Minus className="h-2.5 w-2.5" />
+                  </button>
+                  <span className="w-5 text-center text-[10px] font-mono text-zinc-300 tabular-nums">
+                    {customCount}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (customCount < 30) {
+                        setFrameCountOverrides((prev) => ({ ...prev, [tmpl.type]: customCount + 1 }));
+                      }
+                    }}
+                    disabled={isGenerating || customCount >= 30}
+                    className="w-4 h-4 rounded flex items-center justify-center bg-zinc-800 hover:bg-zinc-600 text-zinc-400 transition-colors disabled:opacity-30"
+                  >
+                    <Plus className="h-2.5 w-2.5" />
+                  </button>
+                  <span className="text-[9px] text-zinc-500 ml-0.5">f</span>
+                </div>
+              </div>
             );
           })}
         </div>

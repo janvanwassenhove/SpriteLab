@@ -4,7 +4,7 @@ import { useWizardStore } from "@/stores/wizard-store";
 import { ANIMATION_TEMPLATES } from "@/lib/fighter-pack/templates";
 import { Label } from "@/components/ui/label";
 import type { AnimationType } from "@/types";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Minus, Plus, Film } from "lucide-react";
 
 const ANIM_CATEGORIES: { label: string; types: AnimationType[] }[] = [
   {
@@ -32,11 +32,18 @@ export function StepAnimations() {
   const deselectAllAnimations = useWizardStore((s) => s.deselectAllAnimations);
   const keyFramesOnly = useWizardStore((s) => s.keyFramesOnly);
   const toggleKeyFramesOnly = useWizardStore((s) => s.toggleKeyFramesOnly);
+  const frameCountOverrides = useWizardStore((s) => s.frameCountOverrides);
+  const setFrameCount = useWizardStore((s) => s.setFrameCount);
+
+  function getFrameCount(tmpl: (typeof ANIMATION_TEMPLATES)[number]) {
+    const base = frameCountOverrides[tmpl.type] ?? tmpl.defaultFrameCount;
+    return keyFramesOnly ? Math.min(base, tmpl.defaultFrameCount) : base;
+  }
 
   const totalFrames = selectedAnimations.reduce((sum, type) => {
     const tmpl = ANIMATION_TEMPLATES.find((t) => t.type === type);
     if (!tmpl) return sum;
-    return sum + (keyFramesOnly ? Math.min(3, tmpl.defaultFrameCount) : tmpl.defaultFrameCount);
+    return sum + getFrameCount(tmpl);
   }, 0);
 
   return (
@@ -82,39 +89,73 @@ export function StepAnimations() {
                 const tmpl = ANIMATION_TEMPLATES.find((t) => t.type === type);
                 if (!tmpl) return null;
                 const selected = selectedAnimations.includes(type);
-                const frames = keyFramesOnly
-                  ? Math.min(3, tmpl.defaultFrameCount)
-                  : tmpl.defaultFrameCount;
+                const customCount = frameCountOverrides[type] ?? tmpl.defaultFrameCount;
+                const frames = getFrameCount(tmpl);
 
                 return (
-                  <button
+                  <div
                     key={type}
-                    onClick={() => toggleAnimation(type)}
-                    className={`flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
+                    className={`rounded-lg border transition-all ${
                       selected
-                        ? "border-indigo-500/50 bg-indigo-500/10 text-zinc-100"
-                        : "border-zinc-700 bg-zinc-800/30 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400"
+                        ? "border-indigo-500/50 bg-indigo-500/10"
+                        : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
                     }`}
                   >
-                    <div
-                      className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 ${
-                        selected ? "bg-indigo-500 text-white" : "border border-zinc-600"
-                      }`}
+                    {/* Toggle row */}
+                    <button
+                      onClick={() => toggleAnimation(type)}
+                      className="flex items-center gap-3 w-full p-3 pb-1.5 text-left"
                     >
-                      {selected && <CheckCircle className="h-3.5 w-3.5" />}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{tmpl.label}</span>
-                        <span className="text-[10px] text-zinc-500">
-                          {frames}f &middot; {tmpl.defaultDelay}ms
-                        </span>
+                      <div
+                        className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
+                          selected ? "bg-indigo-500 text-white" : "border border-zinc-600"
+                        }`}
+                      >
+                        {selected && <CheckCircle className="h-3.5 w-3.5" />}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">
-                        {tmpl.description}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <span className={`text-sm font-medium ${selected ? "text-zinc-100" : "text-zinc-500"}`}>
+                          {tmpl.label}
+                        </span>
+                        <p className="text-[11px] text-zinc-500 line-clamp-1">
+                          {tmpl.description}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Frame count stepper */}
+                    <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
+                      <span className="text-[10px] text-zinc-500 flex items-center gap-1">
+                        <Film className="h-3 w-3" />
+                        {frames}f &middot; {tmpl.defaultDelay}ms
+                      </span>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (customCount > 1) setFrameCount(type, customCount - 1);
+                          }}
+                          className="w-5 h-5 rounded flex items-center justify-center bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors disabled:opacity-30"
+                          disabled={customCount <= 1}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-7 text-center text-xs font-mono text-zinc-200 tabular-nums">
+                          {customCount}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (customCount < 30) setFrameCount(type, customCount + 1);
+                          }}
+                          className="w-5 h-5 rounded flex items-center justify-center bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors disabled:opacity-30"
+                          disabled={customCount >= 30}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

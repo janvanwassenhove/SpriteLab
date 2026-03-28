@@ -32,7 +32,8 @@ export function estimateFighterPackCost(
   keyFramesOnly: boolean,
   quality: "low" | "medium" | "high" = "medium",
   geminiModel?: GeminiModel,
-  openaiModel?: OpenAIModel
+  openaiModel?: OpenAIModel,
+  frameCountOverrides?: Partial<Record<AnimationType, number>>
 ): CostEstimate {
   const unitCost = estimateSingleCost(provider, quality, geminiModel, openaiModel);
   const breakdown: CostEstimate["breakdown"] = [];
@@ -41,7 +42,8 @@ export function estimateFighterPackCost(
   for (const type of animationTypes) {
     const template = ANIMATION_TEMPLATES.find((t) => t.type === type);
     if (!template) continue;
-    const count = keyFramesOnly ? Math.min(3, template.defaultFrameCount) : template.defaultFrameCount;
+    const baseCount = frameCountOverrides?.[type] ?? template.defaultFrameCount;
+    const count = keyFramesOnly ? Math.min(baseCount, template.defaultFrameCount) : baseCount;
     totalCount += count;
     breakdown.push({
       label: template.label,

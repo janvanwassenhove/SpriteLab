@@ -15,6 +15,12 @@ interface ProjectStore {
   setCurrentAnimation: (anim: Animation | null) => void;
   setCurrentFrameIndex: (index: number) => void;
 
+  // Sync current animation edits back into project.animations
+  syncCurrentAnimation: () => void;
+
+  // Replace all project animations (used when loading wizard results)
+  loadAnimations: (animations: Animation[]) => void;
+
   // Animation CRUD
   addAnimation: (anim: Animation) => void;
   updateAnimation: (id: string, updates: Partial<Animation>) => void;
@@ -95,6 +101,29 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   currentFrameIndex: 0,
   setCurrentAnimation: (anim) => set({ currentAnimation: anim, currentFrameIndex: 0 }),
   setCurrentFrameIndex: (index) => set({ currentFrameIndex: index }),
+
+  syncCurrentAnimation: () =>
+    set((s) => {
+      if (!s.project || !s.currentAnimation) return {};
+      return {
+        project: {
+          ...s.project,
+          animations: s.project.animations.map((a) =>
+            a.id === s.currentAnimation!.id ? s.currentAnimation! : a
+          ),
+        },
+      };
+    }),
+
+  loadAnimations: (animations) =>
+    set((s) => {
+      if (!s.project) return {};
+      return {
+        project: { ...s.project, animations },
+        currentAnimation: animations[0] ?? null,
+        currentFrameIndex: 0,
+      };
+    }),
 
   addAnimation: (anim) =>
     set((s) => ({

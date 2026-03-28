@@ -15,22 +15,23 @@ export interface GenerationJob {
 export function buildGenerationQueue(
   baseDescription: string,
   animationTypes: AnimationType[],
-  keyFramesOnly: boolean
+  keyFramesOnly: boolean,
+  frameCountOverrides?: Partial<Record<AnimationType, number>>
 ): GenerationJob[] {
   const jobs: GenerationJob[] = [];
 
   for (const type of animationTypes) {
     const template = getTemplate(type);
-    const totalFrames = template.defaultFrameCount;
+    const totalFrames = frameCountOverrides?.[type] ?? template.defaultFrameCount;
 
     if (keyFramesOnly) {
-      const keyIndices = getKeyFrameIndices(totalFrames);
+      const keyIndices = getKeyFrameIndices(template.defaultFrameCount, totalFrames);
       for (const idx of keyIndices) {
         jobs.push({
           animationType: type,
           frameIndex: idx,
-          totalFrames,
-          prompt: buildAnimationPrompt(baseDescription, type, idx, totalFrames),
+          totalFrames: template.defaultFrameCount,
+          prompt: buildAnimationPrompt(baseDescription, type, idx, template.defaultFrameCount),
         });
       }
     } else {

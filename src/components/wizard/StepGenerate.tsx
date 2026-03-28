@@ -25,6 +25,7 @@ export function StepGenerate() {
   const baseSprite = useWizardStore((s) => s.baseSprite);
   const geminiModel = useWizardStore((s) => s.geminiModel);
   const openaiModel = useWizardStore((s) => s.openaiModel);
+  const frameCountOverrides = useWizardStore((s) => s.frameCountOverrides);
   const isGenerating = useWizardStore((s) => s.isGenerating);
   const setIsGenerating = useWizardStore((s) => s.setIsGenerating);
   const animationProgress = useWizardStore((s) => s.animationProgress);
@@ -69,6 +70,7 @@ export function StepGenerate() {
           referenceImage: baseSprite,
           geminiModel: provider === "gemini" ? geminiModel : undefined,
           openaiModel: provider === "openai" ? openaiModel : undefined,
+          frameCountOverrides,
         }),
       });
 
