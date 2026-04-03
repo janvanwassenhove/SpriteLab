@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
         try {
           for (const [animType, animJobs] of jobsByAnim) {
             send({ animationType: animType, progress: 0, status: "generating" });
+            let successCount = 0;
+            let lastError = "";
 
             for (let i = 0; i < animJobs.length; i++) {
               const job = animJobs[i];
@@ -76,11 +78,14 @@ export async function POST(req: NextRequest) {
                   imageData = result.imageData ?? null;
                 }
               } catch (err) {
+                lastError = err instanceof Error ? err.message : "Frame generation failed";
                 console.error(
                   `Failed to generate ${animType} frame ${job.frameIndex}:`,
                   err
                 );
               }
+
+              if (imageData) successCount++;
 
               const progress = Math.round(((i + 1) / animJobs.length) * 100);
               send({
@@ -93,7 +98,16 @@ export async function POST(req: NextRequest) {
               });
             }
 
-            send({ animationType: animType, progress: 100, status: "done" });
+            if (successCount === 0) {
+              send({
+                animationType: animType,
+                progress: 100,
+                status: "error",
+                error: lastError || "No frames were generated",
+              });
+            } else {
+              send({ animationType: animType, progress: 100, status: "done" });
+            }
           }
 
           send({ complete: true });

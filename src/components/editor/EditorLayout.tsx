@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Panel,
@@ -27,6 +27,7 @@ import { ExportDialog } from "@/components/export/ExportDialog";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { useProjectStore } from "@/stores/project-store";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { saveProjectFull } from "@/lib/storage/local-db";
 
 export function EditorLayout() {
   const router = useRouter();
@@ -35,6 +36,27 @@ export function EditorLayout() {
   const [showSettings, setShowSettings] = useState(false);
 
   useKeyboardShortcuts();
+
+  const handleSave = useCallback(() => {
+    const state = useProjectStore.getState();
+    if (!state.project) return;
+    const project = state.currentAnimation
+      ? {
+          ...state.project,
+          animations: state.project.animations.map((a) =>
+            a.id === state.currentAnimation!.id ? state.currentAnimation! : a
+          ),
+        }
+      : state.project;
+    saveProjectFull(project);
+  }, []);
+
+  // Listen for Ctrl+S custom event
+  useEffect(() => {
+    const onSave = () => handleSave();
+    window.addEventListener("sprite-lab:save", onSave);
+    return () => window.removeEventListener("sprite-lab:save", onSave);
+  }, [handleSave]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full bg-background">
@@ -51,7 +73,7 @@ export function EditorLayout() {
         </div>
         <div className="flex items-center gap-1">
           <Tooltip content="Save (Ctrl+S)">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={handleSave}>
               <Save className="h-4 w-4" />
             </Button>
           </Tooltip>

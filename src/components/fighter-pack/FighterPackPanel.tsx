@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { v4 as uuid } from "uuid";
 import { useProjectStore } from "@/stores/project-store";
 import { useAIStore } from "@/stores/ai-store";
@@ -41,6 +41,8 @@ export function FighterPackPanel() {
   const [frameCountOverrides, setFrameCountOverrides] = useState<Partial<Record<AnimationType, number>>>(
     {}
   );
+  const [framePreviews, setFramePreviews] = useState<Map<string, string[]>>(new Map());
+  const [errorAnims, setErrorAnims] = useState<Set<string>>(new Set());
 
   const isGenerating = useAIStore((s) => s.isGenerating);
   const batchProgress = useAIStore((s) => s.batchProgress);
@@ -62,6 +64,8 @@ export function FighterPackPanel() {
     if (!fighterName.trim() || !description.trim() || isGenerating) return;
 
     setIsGenerating(true);
+    setFramePreviews(new Map());
+    setErrorAnims(new Set());
 
     // Collect generated frame images keyed by animationType
     const frameImages = new Map<string, Map<number, string>>();
@@ -93,30 +97,43 @@ export function FighterPackPanel() {
       const decoder = new TextDecoder();
 
       if (reader) {
+        let buffer = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const text = decoder.decode(value, { stream: true });
-          const lines = text.split("\n").filter(Boolean);
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.animationType && data.progress !== undefined) {
-                  updateBatchProgress(data.animationType, data.progress);
-                }
-                // Collect image data for each frame
-                if (data.imageData && data.animationType != null && data.frameIndex != null) {
-                  if (!frameImages.has(data.animationType)) {
-                    frameImages.set(data.animationType, new Map());
-                  }
-                  frameImages.get(data.animationType)!.set(data.frameIndex, data.imageData);
-                }
-              } catch {
-                // ignore parse errors for partial chunks
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.animationType && data.progress !== undefined) {
+                updateBatchProgress(data.animationType, data.progress);
               }
+              // Track errors
+              if (data.status === "error" && data.animationType) {
+                setErrorAnims((prev) => new Set(prev).add(data.animationType));
+              }
+              // Collect image data for each frame
+              if (data.imageData && data.animationType != null && data.frameIndex != null) {
+                if (!frameImages.has(data.animationType)) {
+                  frameImages.set(data.animationType, new Map());
+                }
+                frameImages.get(data.animationType)!.set(data.frameIndex, data.imageData);
+
+                // Update preview thumbnails for display
+                setFramePreviews((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(data.animationType) ?? [];
+                  next.set(data.animationType, [...existing, data.imageData]);
+                  return next;
+                });
+              }
+            } catch {
+              // ignore parse errors for partial chunks
             }
           }
         }
@@ -197,7 +214,7 @@ export function FighterPackPanel() {
     w: number,
     h: number
   ): Promise<Uint8ClampedArray> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
@@ -209,6 +226,7 @@ export function FighterPackPanel() {
         const imgData = ctx.getImageData(0, 0, w, h);
         resolve(new Uint8ClampedArray(imgData.data));
       };
+      img.onerror = () => reject(new Error("Failed to decode image"));
       img.src = `data:image/png;base64,${base64}`;
     });
   }
@@ -318,7 +336,11 @@ export function FighterPackPanel() {
                 >
                   {progress !== undefined ? (
                     progress >= 100 ? (
-                      <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                      errorAnims.has(tmpl.type) ? (
+                        <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                      )
                     ) : (
                       <Loader2 className="h-3 w-3 animate-spin text-indigo-400 shrink-0" />
                     )
@@ -333,6 +355,28 @@ export function FighterPackPanel() {
                   )}
                   <span className="truncate font-medium">{tmpl.label}</span>
                 </button>
+
+                {/* Generated frame thumbnails */}
+                {(framePreviews.get(tmpl.type)?.length ?? 0) > 0 && (
+                  <div className="flex gap-0.5 px-1.5 pb-1">
+                    {framePreviews.get(tmpl.type)!.slice(0, 4).map((b64, i) => (
+                      <div
+                        key={i}
+                        className="w-8 h-8 rounded border border-zinc-700 bg-zinc-950 overflow-hidden flex items-center justify-center"
+                      >
+                        <img
+                          src={`data:image/png;base64,${b64}`}
+                          alt={`${tmpl.label} frame ${i}`}
+                          className="max-w-full max-h-full"
+                          style={{ imageRendering: "pixelated" }}
+                        />
+                      </div>
+                    ))}
+                    {(framePreviews.get(tmpl.type)?.length ?? 0) > 4 && (
+                      <span className="text-[9px] text-zinc-500 self-center">+{framePreviews.get(tmpl.type)!.length - 4}</span>
+                    )}
+                  </div>
+                )}
 
                 {/* Frame stepper */}
                 <div className="flex items-center justify-end gap-0.5 px-1.5 pb-1.5">
