@@ -185,7 +185,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
                 className="mt-1"
               />
             </div>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               {currentAnimation?.frames.length ?? 0} frames at {canvasWidth}×{canvasHeight}px
             </p>
           </div>
@@ -237,7 +237,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
                 className="mt-1"
               />
             </div>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               Exports {currentAnimation?.frames.length ?? 0} individual PNG files
             </p>
           </div>

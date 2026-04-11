@@ -3,7 +3,19 @@ import type { AIProvider, AIGenerationResult, AIUsage, CostEstimate, GeminiModel
 import { DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini-service";
 import { DEFAULT_OPENAI_MODEL } from "@/lib/ai/openai-service";
 
+export interface BaseCharacter {
+  imageData: string; // base64
+  characterName: string;
+  prompt: string;
+  provider: AIProvider;
+}
+
 interface AIStore {
+  // Base character (set from Character Concept tab, used by Packs)
+  baseCharacter: BaseCharacter | null;
+  setBaseCharacter: (bc: BaseCharacter) => void;
+  clearBaseCharacter: () => void;
+
   // Generation state
   isGenerating: boolean;
   generationProgress: number; // 0-1
@@ -42,6 +54,10 @@ interface AIStore {
 }
 
 export const useAIStore = create<AIStore>((set) => ({
+  baseCharacter: null,
+  setBaseCharacter: (bc) => set({ baseCharacter: bc }),
+  clearBaseCharacter: () => set({ baseCharacter: null }),
+
   isGenerating: false,
   generationProgress: 0,
   currentProvider: "openai",

@@ -3,8 +3,10 @@
 :root {
   --background: #0c0c0f;
   --foreground: #e4e4e7;
+  --muted: #a1a1aa;
   --surface: #18181b;
   --surface-hover: #27272a;
+  --surface-alt: #09090b;
   --border: #3f3f46;
   --accent: #6366f1;
   --accent-hover: #818cf8;
@@ -13,8 +15,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-alt: var(--surface-alt);
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
@@ -44,12 +48,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--muted);
 }
 
 /* Prevent canvas selection */
@@ -63,7 +67,7 @@ canvas {
 /* Color input styling */
 input[type="color"] {
   -webkit-appearance: none;
-  border: 1px solid #3f3f46;
+  border: 1px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
   padding: 0;

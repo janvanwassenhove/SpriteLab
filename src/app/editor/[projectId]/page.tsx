@@ -6,6 +6,7 @@ import { useEffect, useRef, Suspense } from "react";
 import { v4 as uuid } from "uuid";
 import { useEditorStore } from "@/stores/editor-store";
 import { useProjectStore } from "@/stores/project-store";
+import { useAIStore } from "@/stores/ai-store";
 import { EditorLayout } from "@/components/editor/EditorLayout";
 import {
   loadWizardResult,
@@ -36,6 +37,7 @@ function EditorContent() {
   const loadAnimations = useProjectStore((s) => s.loadAnimations);
   const setProject = useProjectStore((s) => s.setProject);
   const setCurrentAnimation = useProjectStore((s) => s.setCurrentAnimation);
+  const setBaseCharacter = useAIStore((s) => s.setBaseCharacter);
   const loaded = useRef(false);
 
   // Load project: try IndexedDB first, then wizard data, then blank
@@ -52,6 +54,15 @@ function EditorContent() {
         setProject(saved);
         setCurrentAnimation(saved.animations[0] ?? null);
         setCanvasSize(saved.canvasWidth, saved.canvasHeight);
+        // Restore base character in AI store if available
+        if (saved.baseCharacterImage) {
+          setBaseCharacter({
+            imageData: saved.baseCharacterImage,
+            characterName: saved.baseCharacterName ?? "",
+            prompt: saved.baseCharacterPrompt ?? "",
+            provider: saved.baseCharacterProvider ?? "openai",
+          });
+        }
         return;
       }
 
@@ -65,9 +76,34 @@ function EditorContent() {
       const wizardData = result as {
         frames: WizardGeneratedFrame[];
         animations: AnimationType[];
+        baseCharacterImage?: string;
+        characterName?: string;
+        characterDescription?: string;
+        provider?: string;
       };
       const { frames: genFrames, animations: animTypes } = wizardData;
       if (!genFrames?.length || !animTypes?.length) return;
+
+      // Restore base character in AI store from wizard data
+      if (wizardData.baseCharacterImage) {
+        setBaseCharacter({
+          imageData: wizardData.baseCharacterImage,
+          characterName: wizardData.characterName ?? "",
+          prompt: wizardData.characterDescription ?? "",
+          provider: (wizardData.provider as import("@/types").AIProvider) ?? "openai",
+        });
+        // Store on project so it persists across reloads
+        const proj = useProjectStore.getState().project;
+        if (proj) {
+          useProjectStore.getState().setProject({
+            ...proj,
+            baseCharacterImage: wizardData.baseCharacterImage,
+            baseCharacterName: wizardData.characterName,
+            baseCharacterPrompt: wizardData.characterDescription,
+            baseCharacterProvider: (wizardData.provider as import("@/types").AIProvider) ?? "openai",
+          });
+        }
+      }
 
       // Group frames by animation type
       const framesByType = new Map<AnimationType, WizardGeneratedFrame[]>();
@@ -122,7 +158,7 @@ function EditorContent() {
       // Clean up temporary wizard data
       deleteWizardResult(projectId);
     })();
-  }, [projectId, width, height, name, setCanvasSize, initProject, loadAnimations, setProject, setCurrentAnimation]);
+  }, [projectId, width, height, name, setCanvasSize, initProject, loadAnimations, setProject, setCurrentAnimation, setBaseCharacter]);
 
   // Auto-save project to IndexedDB when project or current animation changes
   useEffect(() => {
@@ -159,7 +195,7 @@ function EditorContent() {
 
 export default function EditorPage() {
   return (
-    <Suspense fallback={<div className="flex-1 bg-background flex items-center justify-center text-zinc-500">Loading editor...</div>}>
+    <Suspense fallback={<div className="flex-1 bg-background flex items-center justify-center text-muted">Loading editor...</div>}>
       <EditorContent />
     </Suspense>
   );

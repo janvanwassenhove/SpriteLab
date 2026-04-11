@@ -42,7 +42,7 @@ export function StepSettings() {
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold mb-1">Generation Settings</h2>
-        <p className="text-zinc-400 text-sm">
+        <p className="text-muted text-sm">
           Configure AI provider, quality, and review your generation plan.
         </p>
       </div>
@@ -58,12 +58,12 @@ export function StepSettings() {
                 onClick={() => setProvider(p.value)}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   provider === p.value
-                    ? "border-indigo-500 bg-indigo-500/10"
-                    : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                    ? "border-accent bg-accent/10"
+                    : "border-border bg-surface/50 hover:border-muted"
                 }`}
               >
-                <span className="text-sm font-medium text-zinc-200">{p.label}</span>
-                <p className="text-xs text-zinc-500 mt-0.5">{p.desc}</p>
+                <span className="text-sm font-medium text-foreground">{p.label}</span>
+                <p className="text-xs text-muted mt-0.5">{p.desc}</p>
               </button>
             ))}
           </div>
@@ -80,12 +80,12 @@ export function StepSettings() {
                   onClick={() => setGeminiModel(m.value as GeminiModel)}
                   className={`p-3 rounded-lg border text-left transition-colors ${
                     geminiModel === m.value
-                      ? "border-indigo-500 bg-indigo-500/10"
-                      : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                      ? "border-accent bg-accent/10"
+                      : "border-border bg-surface/50 hover:border-muted"
                   }`}
                 >
-                  <span className="text-sm font-medium text-zinc-200">{m.label}</span>
-                  <p className="text-xs text-zinc-500 mt-0.5">{m.description} — ~${m.cost.toFixed(3)}/frame</p>
+                  <span className="text-sm font-medium text-foreground">{m.label}</span>
+                  <p className="text-xs text-muted mt-0.5">{m.description} — ~${m.cost.toFixed(3)}/frame</p>
                 </button>
               ))}
             </div>
@@ -103,12 +103,12 @@ export function StepSettings() {
                   onClick={() => setOpenaiModel(m.value as OpenAIModel)}
                   className={`p-3 rounded-lg border text-left transition-colors ${
                     openaiModel === m.value
-                      ? "border-indigo-500 bg-indigo-500/10"
-                      : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                      ? "border-accent bg-accent/10"
+                      : "border-border bg-surface/50 hover:border-muted"
                   }`}
                 >
-                  <span className="text-sm font-medium text-zinc-200">{m.label}</span>
-                  <p className="text-xs text-zinc-500 mt-0.5">{m.description} — ~${m.cost.medium.toFixed(3)}/frame</p>
+                  <span className="text-sm font-medium text-foreground">{m.label}</span>
+                  <p className="text-xs text-muted mt-0.5">{m.description} — ~${m.cost.medium.toFixed(3)}/frame</p>
                 </button>
               ))}
             </div>
@@ -125,12 +125,12 @@ export function StepSettings() {
                 onClick={() => setQuality(q.value)}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   quality === q.value
-                    ? "border-indigo-500 bg-indigo-500/10"
-                    : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                    ? "border-accent bg-accent/10"
+                    : "border-border bg-surface/50 hover:border-muted"
                 }`}
               >
-                <span className="text-sm font-medium text-zinc-200">{q.label}</span>
-                <p className="text-xs text-zinc-500 mt-0.5">{q.desc}</p>
+                <span className="text-sm font-medium text-foreground">{q.label}</span>
+                <p className="text-xs text-muted mt-0.5">{q.desc}</p>
               </button>
             ))}
           </div>
@@ -138,61 +138,61 @@ export function StepSettings() {
       </div>
 
       {/* Summary */}
-      <div className="bg-zinc-800/50 rounded-lg p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-zinc-200">
-          <Info className="h-4 w-4 text-indigo-400" />
+      <div className="bg-surface/50 rounded-lg p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Info className="h-4 w-4 text-accent" />
           Generation Summary
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2">
-            <Palette className="h-3.5 w-3.5 text-zinc-500" />
-            <span className="text-zinc-400">Character:</span>
-            <span className="text-zinc-200">{characterName}</span>
+            <Palette className="h-3.5 w-3.5 text-muted" />
+            <span className="text-muted">Character:</span>
+            <span className="text-foreground">{characterName}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Zap className="h-3.5 w-3.5 text-zinc-500" />
-            <span className="text-zinc-400">Size:</span>
-            <span className="text-zinc-200">{spriteSize}x{spriteSize}</span>
+            <Zap className="h-3.5 w-3.5 text-muted" />
+            <span className="text-muted">Size:</span>
+            <span className="text-foreground">{spriteSize}x{spriteSize}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-zinc-400">Animations:</span>
-            <span className="text-zinc-200">{selectedAnimations.length}</span>
+            <span className="text-muted">Animations:</span>
+            <span className="text-foreground">{selectedAnimations.length}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-zinc-400">Total frames:</span>
-            <span className="text-zinc-200">~{costEstimate.generationCount}</span>
+            <span className="text-muted">Total frames:</span>
+            <span className="text-foreground">~{costEstimate.generationCount}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-zinc-400">Base sprite:</span>
+            <span className="text-muted">Base sprite:</span>
             <span className={baseSprite ? "text-green-400" : "text-yellow-400"}>
               {baseSprite ? "Generated" : "Not yet"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-zinc-400">Key frames:</span>
-            <span className="text-zinc-200">{keyFramesOnly ? "Yes" : "All frames"}</span>
+            <span className="text-muted">Key frames:</span>
+            <span className="text-foreground">{keyFramesOnly ? "Yes" : "All frames"}</span>
           </div>
         </div>
 
         {/* Cost breakdown */}
-        <div className="border-t border-zinc-700 pt-3 mt-3">
+        <div className="border-t border-border pt-3 mt-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-zinc-400 flex items-center gap-1">
+            <span className="text-sm text-muted flex items-center gap-1">
               <DollarSign className="h-3.5 w-3.5" />
               Cost Breakdown
             </span>
-            <span className="text-sm font-medium text-zinc-200">
+            <span className="text-sm font-medium text-foreground">
               {formatCost(costEstimate.estimatedCost)}
             </span>
           </div>
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {costEstimate.breakdown.map((item) => (
               <div key={item.label} className="flex items-center justify-between text-xs">
-                <span className="text-zinc-500">
+                <span className="text-muted">
                   {item.label} ({item.count} frames)
                 </span>
-                <span className="text-zinc-400">{formatCost(item.total)}</span>
+                <span className="text-muted">{formatCost(item.total)}</span>
               </div>
             ))}
           </div>

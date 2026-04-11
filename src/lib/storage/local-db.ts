@@ -160,6 +160,10 @@ interface SerializedProject {
   animations: SerializedAnimation[];
   sprites: unknown[];
   fighterPacks: unknown[];
+  baseCharacterImage?: string;
+  baseCharacterName?: string;
+  baseCharacterPrompt?: string;
+  baseCharacterProvider?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -181,7 +185,69 @@ function base64ToUint8Array(b64: string): Uint8ClampedArray {
   return arr;
 }
 
+function generateThumbnail(project: import("@/types").Project): string | undefined {
+  const firstFrame = project.animations[0]?.frames[0];
+  if (!firstFrame?.layers.length) return undefined;
+
+  const w = project.canvasWidth;
+  const h = project.canvasHeight;
+  const composite = new Uint8ClampedArray(w * h * 4);
+
+  for (const layer of firstFrame.layers) {
+    if (!layer.visible || layer.opacity === 0) continue;
+    const alpha = layer.opacity;
+    for (let i = 0; i < w * h; i++) {
+      const idx = i * 4;
+      const srcA = (layer.data[idx + 3] / 255) * alpha;
+      const dstA = composite[idx + 3] / 255;
+      const outA = srcA + dstA * (1 - srcA);
+      if (outA > 0) {
+        composite[idx] = (layer.data[idx] * srcA + composite[idx] * dstA * (1 - srcA)) / outA;
+        composite[idx + 1] = (layer.data[idx + 1] * srcA + composite[idx + 1] * dstA * (1 - srcA)) / outA;
+        composite[idx + 2] = (layer.data[idx + 2] * srcA + composite[idx + 2] * dstA * (1 - srcA)) / outA;
+        composite[idx + 3] = outA * 255;
+      }
+    }
+  }
+
+  // Check if there are any non-transparent pixels
+  let hasContent = false;
+  for (let i = 3; i < composite.length; i += 4) {
+    if (composite[i] > 0) {
+      hasContent = true;
+      break;
+    }
+  }
+  if (!hasContent) return undefined;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  const imgData = ctx.createImageData(w, h);
+  imgData.data.set(composite);
+  ctx.putImageData(imgData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+function updateLocalStorageMetadata(project: import("@/types").Project, thumbnail?: string) {
+  try {
+    const stored: Array<{ id: string; name?: string; thumbnail?: string }> = JSON.parse(
+      localStorage.getItem("sprite-projects") ?? "[]"
+    );
+    const idx = stored.findIndex((p) => p.id === project.id);
+    if (idx !== -1) {
+      stored[idx] = { ...stored[idx], name: project.name, thumbnail };
+      localStorage.setItem("sprite-projects", JSON.stringify(stored));
+    }
+  } catch {
+    // localStorage unavailable or corrupt — ignore
+  }
+}
+
 export async function saveProjectFull(project: import("@/types").Project) {
+  const thumbnail = typeof document !== "undefined" ? generateThumbnail(project) : undefined;
+
   const serialized: SerializedProject = {
     id: project.id,
     name: project.name,
@@ -209,6 +275,10 @@ export async function saveProjectFull(project: import("@/types").Project) {
     })),
     sprites: project.sprites,
     fighterPacks: project.fighterPacks,
+    baseCharacterImage: project.baseCharacterImage,
+    baseCharacterName: project.baseCharacterName,
+    baseCharacterPrompt: project.baseCharacterPrompt,
+    baseCharacterProvider: project.baseCharacterProvider,
     createdAt: project.createdAt.toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -219,7 +289,10 @@ export async function saveProjectFull(project: import("@/types").Project) {
     canvasWidth: project.canvasWidth,
     canvasHeight: project.canvasHeight,
     data: serialized,
+    thumbnail,
   });
+
+  updateLocalStorageMetadata(project, thumbnail);
 }
 
 export async function loadProjectFull(
@@ -264,6 +337,10 @@ export async function loadProjectFull(
     })),
     sprites: (serialized.sprites ?? []) as import("@/types").SpriteData[],
     fighterPacks: (serialized.fighterPacks ?? []) as import("@/types").FighterPack[],
+    baseCharacterImage: serialized.baseCharacterImage,
+    baseCharacterName: serialized.baseCharacterName,
+    baseCharacterPrompt: serialized.baseCharacterPrompt,
+    baseCharacterProvider: serialized.baseCharacterProvider as import("@/types").AIProvider | undefined,
     createdAt: new Date(serialized.createdAt),
     updatedAt: new Date(serialized.updatedAt),
   };

@@ -97,7 +97,7 @@ export function LayerPanel() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
-        <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted uppercase tracking-wider">
           Layers
         </span>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={addLayer}>
@@ -113,8 +113,8 @@ export function LayerPanel() {
               className={cn(
                 "flex items-center gap-1 px-1.5 py-1 rounded text-xs cursor-pointer transition-colors",
                 activeLayerId === layer.id
-                  ? "bg-zinc-700/80 text-zinc-100"
-                  : "text-zinc-400 hover:bg-zinc-800"
+                  ? "bg-surface-hover text-foreground"
+                  : "text-muted hover:bg-surface-hover"
               )}
               onClick={() => setActiveLayerId(layer.id)}
             >
@@ -124,12 +124,12 @@ export function LayerPanel() {
                   e.stopPropagation();
                   updateLayer(layer.id, { visible: !layer.visible });
                 }}
-                className="shrink-0 hover:text-zinc-200"
+                className="shrink-0 hover:text-foreground"
               >
                 {layer.visible ? (
                   <Eye className="h-3 w-3" />
                 ) : (
-                  <EyeOff className="h-3 w-3 text-zinc-600" />
+                  <EyeOff className="h-3 w-3 text-muted" />
                 )}
               </button>
 
@@ -143,7 +143,7 @@ export function LayerPanel() {
                     e.stopPropagation();
                     moveLayer(layer.id, "up");
                   }}
-                  className="hover:text-zinc-200"
+                  className="hover:text-foreground"
                 >
                   <ChevronUp className="h-3 w-3" />
                 </button>
@@ -152,7 +152,7 @@ export function LayerPanel() {
                     e.stopPropagation();
                     moveLayer(layer.id, "down");
                   }}
-                  className="hover:text-zinc-200"
+                  className="hover:text-foreground"
                 >
                   <ChevronDown className="h-3 w-3" />
                 </button>
@@ -161,7 +161,7 @@ export function LayerPanel() {
                     e.stopPropagation();
                     duplicateLayer(layer.id);
                   }}
-                  className="hover:text-zinc-200"
+                  className="hover:text-foreground"
                 >
                   <Copy className="h-3 w-3" />
                 </button>
@@ -184,7 +184,7 @@ export function LayerPanel() {
       {activeLayerId && (
         <div className="px-2 py-1.5 border-t border-border">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-zinc-500">Opacity</span>
+            <span className="text-[10px] text-muted">Opacity</span>
             <input
               type="range"
               min={0}
@@ -193,9 +193,9 @@ export function LayerPanel() {
               onChange={(e) =>
                 updateLayer(activeLayerId, { opacity: parseInt(e.target.value) / 100 })
               }
-              className="flex-1 h-1 accent-indigo-500"
+              className="flex-1 h-1 accent-accent"
             />
-            <span className="text-[10px] text-zinc-500 w-7 text-right font-mono">
+            <span className="text-[10px] text-muted w-7 text-right font-mono">
               {Math.round((layers.find((l) => l.id === activeLayerId)?.opacity ?? 1) * 100)}
               %
             </span>

@@ -7,17 +7,12 @@ import { Select } from "@/components/ui/select";
 import {
   useWizardStore,
   getSpriteSize,
-  type ArtStyle,
+  artStyleFromSize,
 } from "@/stores/wizard-store";
+import { SPRITE_SIZES } from "@/types";
+import type { SpriteSize } from "@/types";
 import { downscale, removeBackground, base64ToPixelData } from "@/lib/ai/pixelizer";
 import { Loader2, RefreshCw, Sparkles, ImageIcon } from "lucide-react";
-
-const ART_STYLES: { value: ArtStyle; label: string; size: string }[] = [
-  { value: "pixel-16", label: "16x16 — Tiny", size: "16" },
-  { value: "pixel-32", label: "32x32 — Small", size: "32" },
-  { value: "pixel-64", label: "64x64 — Medium", size: "64" },
-  { value: "pixel-128", label: "128x128 — Large", size: "128" },
-];
 
 export function StepAppearance() {
   const characterName = useWizardStore((s) => s.characterName);
@@ -158,7 +153,7 @@ export function StepAppearance() {
     <div className="space-y-6 max-w-3xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold mb-1">Character Appearance</h2>
-        <p className="text-zinc-400 text-sm">
+        <p className="text-muted text-sm">
           {hasUpload
             ? "Your uploaded image will be processed. Adjust sprite size below."
             : "Choose sprite size and generate your base character design."}
@@ -171,22 +166,22 @@ export function StepAppearance() {
           <div>
             <Label>Sprite Size</Label>
             <Select
-              value={artStyle}
-              onChange={(e) => setArtStyle(e.target.value as ArtStyle)}
-              options={ART_STYLES.map((s) => ({ value: s.value, label: s.label }))}
+              value={String(spriteSize)}
+              onChange={(e) => setArtStyle(artStyleFromSize(Number(e.target.value) as SpriteSize))}
+              options={SPRITE_SIZES.map((s) => ({ value: String(s.value), label: s.label }))}
               className="mt-1.5"
             />
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="text-xs text-muted mt-1">
               {spriteSize}x{spriteSize} pixels per frame
             </p>
           </div>
 
-          <div className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
-            <p className="text-xs font-medium text-zinc-300">Character Preview</p>
-            <div className="text-xs text-zinc-500 space-y-1">
-              <p><span className="text-zinc-400">Name:</span> {characterName || "—"}</p>
-              <p><span className="text-zinc-400">Type:</span> {characterStyle}</p>
-              <p className="line-clamp-3"><span className="text-zinc-400">Desc:</span> {characterDescription || "—"}</p>
+          <div className="bg-surface/50 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-medium text-foreground">Character Preview</p>
+            <div className="text-xs text-muted space-y-1">
+              <p><span className="text-muted">Name:</span> {characterName || "—"}</p>
+              <p><span className="text-muted">Type:</span> {characterStyle}</p>
+              <p className="line-clamp-3"><span className="text-muted">Desc:</span> {characterDescription || "—"}</p>
               {hasUpload && (
                 <p><span className="text-green-400">Source:</span> Uploaded image</p>
               )}
@@ -201,12 +196,12 @@ export function StepAppearance() {
                 <span>Using uploaded image as base</span>
               </div>
               {isProcessing && (
-                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <div className="flex items-center gap-2 text-sm text-muted">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Processing image...</span>
                 </div>
               )}
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted">
                 You can still generate an AI variant below if you want.
               </p>
               <Button
@@ -257,7 +252,7 @@ export function StepAppearance() {
         {/* Right: Preview */}
         <div className="space-y-3">
           {/* Main preview */}
-          <div className="flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 min-h-[280px]">
+          <div className="flex items-center justify-center rounded-lg border border-border bg-surface-alt min-h-[280px]">
             {/* Show processed uploaded image OR generated variants */}
             {hasUpload && processedImage ? (
               <div className="flex flex-col items-center gap-2">
@@ -267,11 +262,11 @@ export function StepAppearance() {
                   className="max-w-full max-h-[240px]"
                   style={{ imageRendering: "pixelated" }}
                 />
-                <span className="text-xs text-zinc-500">Processed result</span>
+                <span className="text-xs text-muted">Processed result</span>
               </div>
             ) : hasUpload && isProcessing ? (
-              <div className="flex flex-col items-center gap-3 text-zinc-500">
-                <Loader2 className="h-10 w-10 animate-spin text-indigo-400" />
+              <div className="flex flex-col items-center gap-3 text-muted">
+                <Loader2 className="h-10 w-10 animate-spin text-accent" />
                 <span className="text-sm">Processing your image...</span>
               </div>
             ) : baseSpriteVariants.length > 0 ? (
@@ -282,12 +277,12 @@ export function StepAppearance() {
                 style={{ imageRendering: "pixelated" }}
               />
             ) : isGeneratingBase ? (
-              <div className="flex flex-col items-center gap-3 text-zinc-500">
-                <Loader2 className="h-10 w-10 animate-spin text-indigo-400" />
+              <div className="flex flex-col items-center gap-3 text-muted">
+                <Loader2 className="h-10 w-10 animate-spin text-accent" />
                 <span className="text-sm">Creating your character...</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 text-zinc-600">
+              <div className="flex flex-col items-center gap-2 text-muted">
                 <Sparkles className="h-10 w-10" />
                 <span className="text-sm">Generate to see preview</span>
               </div>
@@ -301,10 +296,10 @@ export function StepAppearance() {
                 <button
                   key={i}
                   onClick={() => selectVariant(i)}
-                  className={`w-16 h-16 rounded border-2 overflow-hidden bg-zinc-950 flex items-center justify-center transition-colors ${
+                  className={`w-16 h-16 rounded border-2 overflow-hidden bg-surface-alt flex items-center justify-center transition-colors ${
                     i === selectedVariantIndex
-                      ? "border-indigo-500"
-                      : "border-zinc-700 hover:border-zinc-500"
+                      ? "border-accent"
+                      : "border-border hover:border-muted"
                   }`}
                 >
                   <img
@@ -322,18 +317,18 @@ export function StepAppearance() {
           {hasUpload && processedImage && (
             <div className="flex gap-3 justify-center">
               <div className="text-center">
-                <div className="w-20 h-20 rounded border border-zinc-700 bg-zinc-950 flex items-center justify-center overflow-hidden">
+                <div className="w-20 h-20 rounded border border-border bg-surface-alt flex items-center justify-center overflow-hidden">
                   <img
                     src={`data:image/png;base64,${uploadedImage}`}
                     alt="Original"
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
-                <span className="text-xs text-zinc-500 mt-1 block">Original</span>
+                <span className="text-xs text-muted mt-1 block">Original</span>
               </div>
-              <div className="flex items-center text-zinc-600 text-xs">→</div>
+              <div className="flex items-center text-muted text-xs">→</div>
               <div className="text-center">
-                <div className="w-20 h-20 rounded border border-indigo-500/50 bg-zinc-950 flex items-center justify-center overflow-hidden">
+                <div className="w-20 h-20 rounded border border-accent/50 bg-surface-alt flex items-center justify-center overflow-hidden">
                   <img
                     src={`data:image/png;base64,${processedImage}`}
                     alt="Processed"
@@ -341,7 +336,7 @@ export function StepAppearance() {
                     style={{ imageRendering: "pixelated" }}
                   />
                 </div>
-                <span className="text-xs text-indigo-400 mt-1 block">Processed</span>
+                <span className="text-xs text-accent mt-1 block">Processed</span>
               </div>
             </div>
           )}

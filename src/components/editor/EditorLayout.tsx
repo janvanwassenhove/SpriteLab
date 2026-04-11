@@ -10,6 +10,7 @@ import {
 import {
   ArrowLeft,
   Save,
+  Check,
   Download,
   Settings,
   Swords,
@@ -25,6 +26,7 @@ import { RightPanel } from "./RightPanel";
 import { StatusBar } from "./StatusBar";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
 import { useProjectStore } from "@/stores/project-store";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { saveProjectFull } from "@/lib/storage/local-db";
@@ -34,21 +36,29 @@ export function EditorLayout() {
   const projectName = useProjectStore((s) => s.project?.name ?? "Untitled");
   const [showExport, setShowExport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   useKeyboardShortcuts();
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const state = useProjectStore.getState();
     if (!state.project) return;
-    const project = state.currentAnimation
-      ? {
-          ...state.project,
-          animations: state.project.animations.map((a) =>
-            a.id === state.currentAnimation!.id ? state.currentAnimation! : a
-          ),
-        }
-      : state.project;
-    saveProjectFull(project);
+    setSaveState("saving");
+    try {
+      const project = state.currentAnimation
+        ? {
+            ...state.project,
+            animations: state.project.animations.map((a) =>
+              a.id === state.currentAnimation!.id ? state.currentAnimation! : a
+            ),
+          }
+        : state.project;
+      await saveProjectFull(project);
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 1500);
+    } catch {
+      setSaveState("idle");
+    }
   }, []);
 
   // Listen for Ctrl+S custom event
@@ -72,9 +82,13 @@ export function EditorLayout() {
           <span className="text-sm font-medium">{projectName}</span>
         </div>
         <div className="flex items-center gap-1">
-          <Tooltip content="Save (Ctrl+S)">
-            <Button variant="ghost" size="icon" onClick={handleSave}>
-              <Save className="h-4 w-4" />
+          <Tooltip content={saveState === "saved" ? "Saved!" : "Save (Ctrl+S)"}>
+            <Button variant="ghost" size="icon" onClick={handleSave} disabled={saveState === "saving"}>
+              {saveState === "saved" ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Save className={`h-4 w-4 ${saveState === "saving" ? "animate-pulse" : ""}`} />
+              )}
             </Button>
           </Tooltip>
           <Tooltip content="Export">
@@ -82,6 +96,7 @@ export function EditorLayout() {
               <Download className="h-4 w-4" />
             </Button>
           </Tooltip>
+          <ThemeSwitcher />
           <Tooltip content="Settings">
             <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)}>
               <Settings className="h-4 w-4" />

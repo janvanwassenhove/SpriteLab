@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuid } from "uuid";
 import { useWizardStore, getSpriteSize } from "@/stores/wizard-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { ANIMATION_TEMPLATES } from "@/lib/fighter-pack/templates";
 import { Button } from "@/components/ui/button";
 import type { AnimationType } from "@/types";
@@ -37,6 +38,7 @@ export function StepComplete() {
   const addGeneratedFrame = useWizardStore((s) => s.addGeneratedFrame);
   const regenerateAnimation = useWizardStore((s) => s.regenerateAnimation);
   const reset = useWizardStore((s) => s.reset);
+  const settingsAnalysisModel = useSettingsStore((s) => s.analysisModel);
 
   const [regeneratingAnim, setRegeneratingAnim] = useState<AnimationType | null>(null);
 
@@ -78,6 +80,15 @@ export function StepComplete() {
   async function openInEditor() {
     const projectId = uuid();
     const size = spriteSize;
+
+    // Use the first generated frame (idle frame 0) or baseSprite as thumbnail
+    const firstFrame = generatedFrames.find((f) => f.frameIndex === 0);
+    const thumbnail = firstFrame
+      ? `data:image/png;base64,${firstFrame.imageData}`
+      : baseSprite
+        ? `data:image/png;base64,${baseSprite}`
+        : undefined;
+
     const entries = JSON.parse(localStorage.getItem("sprite-projects") ?? "[]");
     entries.unshift({
       id: projectId,
@@ -85,12 +96,17 @@ export function StepComplete() {
       width: size,
       height: size,
       createdAt: new Date().toISOString(),
+      thumbnail,
     });
     localStorage.setItem("sprite-projects", JSON.stringify(entries));
     // Store generated frames in IndexedDB (too large for localStorage)
     await saveWizardResult(projectId, {
       frames: generatedFrames,
       animations: stableCompletedAnims.map((a) => a.type),
+      baseCharacterImage: baseSprite ?? undefined,
+      characterName,
+      characterDescription,
+      provider,
     });
     reset();
     router.push(`/editor/${projectId}?w=${size}&h=${size}&name=${encodeURIComponent(characterName)}`);
@@ -127,6 +143,7 @@ export function StepComplete() {
           referenceImage: baseSprite ?? undefined,
           geminiModel: provider === "gemini" ? geminiModel : undefined,
           openaiModel: provider === "openai" ? openaiModel : undefined,
+          analysisModel: settingsAnalysisModel,
         }),
       });
 
@@ -197,7 +214,7 @@ export function StepComplete() {
           <CheckCircle className="h-8 w-8 text-green-500" />
         </div>
         <h2 className="text-2xl font-bold mb-1">Character Complete!</h2>
-        <p className="text-zinc-400 text-sm">
+        <p className="text-muted text-sm">
           {characterName} is ready with {stableCompletedAnims.length} animations.
         </p>
       </div>
@@ -206,7 +223,7 @@ export function StepComplete() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Preview */}
         <div className="space-y-3">
-          <div className="flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950 h-64">
+          <div className="flex items-center justify-center rounded-lg border border-border bg-surface-alt h-64">
             {previewFrames.length > 0 && previewFrames[currentFrameIdx] ? (
               <img
                 src={`data:image/png;base64,${previewFrames[currentFrameIdx].imageData}`}
@@ -215,7 +232,7 @@ export function StepComplete() {
                 style={{ imageRendering: "pixelated" }}
               />
             ) : (
-              <span className="text-sm text-zinc-600">Select an animation to preview</span>
+              <span className="text-sm text-muted">Select an animation to preview</span>
             )}
           </div>
           {previewFrames.length > 0 && (
@@ -227,7 +244,7 @@ export function StepComplete() {
               >
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-muted">
                 Frame {currentFrameIdx + 1}/{previewFrames.length}
               </span>
             </div>
@@ -251,13 +268,13 @@ export function StepComplete() {
                 }}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ${
                   isActive
-                    ? "border-indigo-500 bg-indigo-500/10"
-                    : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                    ? "border-accent bg-accent/10"
+                    : "border-border bg-surface/50 hover:border-muted"
                 }`}
               >
                 {/* Thumbnail */}
                 {frames[0] && (
-                  <div className="w-10 h-10 rounded border border-zinc-700 bg-zinc-950 overflow-hidden flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded border border-border bg-surface-alt overflow-hidden flex items-center justify-center shrink-0">
                     <img
                       src={`data:image/png;base64,${frames[0].imageData}`}
                       alt={tmpl.label}
@@ -267,11 +284,11 @@ export function StepComplete() {
                   </div>
                 )}
                 <div className="min-w-0">
-                  <span className="text-sm font-medium text-zinc-200">{tmpl.label}</span>
-                  <p className="text-xs text-zinc-500">{frames.length} frames</p>
+                  <span className="text-sm font-medium text-foreground">{tmpl.label}</span>
+                  <p className="text-xs text-muted">{frames.length} frames</p>
                 </div>
                 {ap.status === "generating" ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-400 ml-auto shrink-0" />
+                  <Loader2 className="h-4 w-4 animate-spin text-accent ml-auto shrink-0" />
                 ) : (
                   <div className="flex items-center gap-1 ml-auto shrink-0">
                     <Button
@@ -285,7 +302,7 @@ export function StepComplete() {
                         handleRegenerateAnimation(ap.type);
                       }}
                     >
-                      <RefreshCw className="h-3.5 w-3.5 text-zinc-400 hover:text-zinc-200" />
+                      <RefreshCw className="h-3.5 w-3.5 text-muted hover:text-foreground" />
                     </Button>
                     <CheckCircle className="h-4 w-4 text-green-500" />
                   </div>

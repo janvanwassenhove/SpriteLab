@@ -22,7 +22,7 @@ export function ColorPanel() {
         <div className="relative w-12 h-12">
           {/* Secondary (back) */}
           <div
-            className="absolute bottom-0 right-0 w-7 h-7 rounded border border-zinc-600 cursor-pointer"
+            className="absolute bottom-0 right-0 w-7 h-7 rounded border border-border cursor-pointer"
             style={{ backgroundColor: colorToHex(secondaryColor) }}
             title="Secondary color (right-click)"
           />
@@ -31,12 +31,12 @@ export function ColorPanel() {
             type="color"
             value={colorToHex(primaryColor)}
             onChange={(e) => setPrimaryColor(hexToColor(e.target.value))}
-            className="absolute top-0 left-0 w-8 h-8 rounded border-2 border-zinc-500 cursor-pointer"
+            className="absolute top-0 left-0 w-8 h-8 rounded border-2 border-border cursor-pointer"
           />
         </div>
         <button
           onClick={swapColors}
-          className="text-xs text-zinc-400 hover:text-zinc-200 px-1"
+          className="text-xs text-muted hover:text-foreground px-1"
           title="Swap colors (X)"
         >
           ⇄
@@ -45,7 +45,7 @@ export function ColorPanel() {
           type="color"
           value={colorToHex(secondaryColor)}
           onChange={(e) => setSecondaryColor(hexToColor(e.target.value))}
-          className="w-6 h-6 rounded border border-zinc-600 cursor-pointer"
+          className="w-6 h-6 rounded border border-border cursor-pointer"
         />
       </div>
 
@@ -54,7 +54,7 @@ export function ColorPanel() {
         <select
           value={activePalette}
           onChange={(e) => setActivePalette(e.target.value)}
-          className="flex-1 text-xs bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 text-zinc-300"
+          className="flex-1 text-xs bg-surface border border-border rounded px-1 py-0.5 text-foreground"
         >
           {PRESET_PALETTES.map((p) => (
             <option key={p.id} value={p.id}>
@@ -69,7 +69,7 @@ export function ColorPanel() {
         {palette.colors.map((color, i) => (
           <button
             key={i}
-            className="w-full aspect-square rounded-sm border border-zinc-700 hover:border-zinc-400 transition-colors"
+            className="w-full aspect-square rounded-sm border border-border hover:border-muted transition-colors"
             style={{ backgroundColor: colorToHex(color) }}
             onClick={() => setPrimaryColor(color)}
             onContextMenu={(e) => {

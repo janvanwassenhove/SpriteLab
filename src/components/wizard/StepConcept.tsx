@@ -81,7 +81,7 @@ export function StepConcept() {
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold mb-1">Character Concept</h2>
-        <p className="text-zinc-400 text-sm">
+        <p className="text-muted text-sm">
           Define your character&apos;s identity and visual style.
         </p>
       </div>
@@ -104,9 +104,9 @@ export function StepConcept() {
             value={characterDescription}
             onChange={(e) => setCharacterDescription(e.target.value)}
             placeholder="Describe the character's appearance in detail: body type, clothing, armor, weapons, colors, distinguishing features..."
-            className="mt-1.5 w-full h-28 rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 resize-none"
+            className="mt-1.5 w-full h-28 rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border resize-none"
           />
-          <p className="text-xs text-zinc-500 mt-1">
+          <p className="text-xs text-muted mt-1">
             Be specific about colors, clothing, weapons, and unique features for better results.
           </p>
         </div>
@@ -123,15 +123,15 @@ export function StepConcept() {
                   onClick={() => setCharacterStyle(style.value)}
                   className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-colors text-left ${
                     selected
-                      ? "border-indigo-500 bg-indigo-500/10 text-zinc-100"
-                      : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                      ? "border-accent bg-accent/10 text-foreground"
+                      : "border-border bg-surface/50 text-muted hover:border-muted hover:text-foreground"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4" />
                     <span className="text-sm font-medium">{style.label}</span>
                   </div>
-                  <span className="text-xs text-zinc-500">{style.desc}</span>
+                  <span className="text-xs text-muted">{style.desc}</span>
                 </button>
               );
             })}
@@ -141,12 +141,12 @@ export function StepConcept() {
         {/* Upload existing image */}
         <div>
           <Label>Start from Existing Image (optional)</Label>
-          <p className="text-xs text-zinc-500 mt-0.5 mb-2">
+          <p className="text-xs text-muted mt-0.5 mb-2">
             Upload a character image to use as the base. It will be pixelised and cleaned up automatically.
           </p>
           {uploadedImage ? (
-            <div className="flex items-start gap-4 p-3 rounded-lg border border-zinc-700 bg-zinc-800/50">
-              <div className="w-24 h-24 rounded border border-zinc-600 bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="flex items-start gap-4 p-3 rounded-lg border border-border bg-surface/50">
+              <div className="w-24 h-24 rounded border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
                 <img
                   src={`data:image/png;base64,${uploadedImage}`}
                   alt="Uploaded character"
@@ -156,10 +156,10 @@ export function StepConcept() {
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-green-400" />
-                  <span className="text-sm text-zinc-300">Image uploaded</span>
+                  <span className="text-sm text-foreground">Image uploaded</span>
                   <button
                     onClick={() => setUploadedImage(null)}
-                    className="ml-auto p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
+                    className="ml-auto p-1 rounded hover:bg-surface-hover text-muted hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -169,18 +169,18 @@ export function StepConcept() {
                     type="checkbox"
                     checked={uploadPixelise}
                     onChange={(e) => setUploadPixelise(e.target.checked)}
-                    className="rounded border-zinc-600"
+                    className="rounded border-border"
                   />
-                  <span className="text-xs text-zinc-400">Pixelise to sprite size</span>
+                  <span className="text-xs text-muted">Pixelise to sprite size</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={uploadRemoveBg}
                     onChange={(e) => setUploadRemoveBg(e.target.checked)}
-                    className="rounded border-zinc-600"
+                    className="rounded border-border"
                   />
-                  <span className="text-xs text-zinc-400">Remove background (transparent PNG)</span>
+                  <span className="text-xs text-muted">Remove background (transparent PNG)</span>
                 </label>
               </div>
             </div>
@@ -189,13 +189,13 @@ export function StepConcept() {
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 border-dashed border-zinc-700 bg-zinc-800/30 hover:border-zinc-500 hover:bg-zinc-800/60 cursor-pointer transition-colors"
+              className="flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 border-dashed border-border bg-surface/50 hover:border-muted hover:bg-surface-hover cursor-pointer transition-colors"
             >
-              <Upload className="h-8 w-8 text-zinc-600" />
-              <span className="text-sm text-zinc-500">
+              <Upload className="h-8 w-8 text-muted" />
+              <span className="text-sm text-muted">
                 Drop an image here or click to browse
               </span>
-              <span className="text-xs text-zinc-600">PNG, JPG, or WebP</span>
+              <span className="text-xs text-muted">PNG, JPG, or WebP</span>
               <input
                 ref={fileInputRef}
                 type="file"

@@ -60,7 +60,7 @@ export function Toolbar() {
               "w-8 h-8 flex items-center justify-center rounded transition-colors",
               tool === t
                 ? "bg-accent text-white"
-                : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                : "text-muted hover:bg-surface-hover hover:text-foreground"
             )}
             onClick={() => setTool(t)}
           >
@@ -75,14 +75,14 @@ export function Toolbar() {
       <Tooltip content={`Brush: ${brushSize}px`} side="right">
         <div className="flex flex-col items-center gap-0.5">
           <button
-            className="w-8 h-6 text-xs text-zinc-400 hover:text-zinc-200"
+            className="w-8 h-6 text-xs text-muted hover:text-foreground"
             onClick={() => setBrushSize(brushSize + 1)}
           >
             +
           </button>
-          <span className="text-[10px] text-zinc-500 font-mono">{brushSize}</span>
+          <span className="text-[10px] text-muted font-mono">{brushSize}</span>
           <button
-            className="w-8 h-6 text-xs text-zinc-400 hover:text-zinc-200"
+            className="w-8 h-6 text-xs text-muted hover:text-foreground"
             onClick={() => setBrushSize(brushSize - 1)}
           >
             -
@@ -97,7 +97,7 @@ export function Toolbar() {
         <button
           className={cn(
             "w-8 h-8 flex items-center justify-center rounded transition-colors",
-            mirrorX ? "bg-indigo-700 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            mirrorX ? "bg-accent text-white" : "text-muted hover:bg-surface-hover"
           )}
           onClick={toggleMirrorX}
         >
@@ -109,7 +109,7 @@ export function Toolbar() {
         <button
           className={cn(
             "w-8 h-8 flex items-center justify-center rounded transition-colors",
-            mirrorY ? "bg-indigo-700 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            mirrorY ? "bg-accent text-white" : "text-muted hover:bg-surface-hover"
           )}
           onClick={toggleMirrorY}
         >
@@ -121,7 +121,7 @@ export function Toolbar() {
         <button
           className={cn(
             "w-8 h-8 flex items-center justify-center rounded transition-colors",
-            showGrid ? "bg-indigo-700 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            showGrid ? "bg-accent text-white" : "text-muted hover:bg-surface-hover"
           )}
           onClick={toggleGrid}
         >
@@ -133,7 +133,7 @@ export function Toolbar() {
         <button
           className={cn(
             "w-8 h-8 flex items-center justify-center rounded transition-colors",
-            showOnionSkin ? "bg-indigo-700 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            showOnionSkin ? "bg-accent text-white" : "text-muted hover:bg-surface-hover"
           )}
           onClick={toggleOnionSkin}
         >
@@ -147,7 +147,7 @@ export function Toolbar() {
           <button
             className={cn(
               "w-8 h-8 flex items-center justify-center rounded transition-colors",
-              fillShape ? "bg-indigo-700 text-white" : "text-zinc-400 hover:bg-zinc-800"
+              fillShape ? "bg-accent text-white" : "text-muted hover:bg-surface-hover"
             )}
             onClick={toggleFillShape}
           >

@@ -10,12 +10,16 @@ import {
   Sparkles,
   Upload,
   Trash2,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { listProjectsLocal } from "@/lib/storage/local-db";
+import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
 
 const SPRITE_SIZES = [
   { value: "16", label: "16×16" },
@@ -39,17 +43,42 @@ interface ProjectEntry {
 export default function HomePage() {
   const router = useRouter();
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [projectName, setProjectName] = useState("New Fighter");
   const [spriteSize, setSpriteSize] = useState("64");
-  const [projects, setProjects] = useState<ProjectEntry[]>([]);
+  const [projects, setProjects] = useState<ProjectEntry[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("sprite-projects") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("sprite-projects") ?? "[]");
-      setProjects(stored);
-    } catch {
-      setProjects([]);
-    }
+    // Hydrate thumbnails from IndexedDB for projects missing them
+    listProjectsLocal().then((dbProjects) => {
+      const thumbMap = new Map<string, string>();
+      for (const dbp of dbProjects) {
+        if (dbp.thumbnail) thumbMap.set(dbp.id, dbp.thumbnail);
+      }
+      if (thumbMap.size === 0) return;
+
+      setProjects((prev) => {
+        let changed = false;
+        const updated = prev.map((p) => {
+          if (!p.thumbnail && thumbMap.has(p.id)) {
+            changed = true;
+            return { ...p, thumbnail: thumbMap.get(p.id) };
+          }
+          return p;
+        });
+        if (changed) {
+          localStorage.setItem("sprite-projects", JSON.stringify(updated));
+        }
+        return changed ? updated : prev;
+      });
+    });
   }, []);
 
   function createProject() {
@@ -83,7 +112,7 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <Swords className="h-7 w-7 text-accent" />
           <h1 className="text-xl font-bold tracking-tight">SpriteLab</h1>
-          <span className="text-xs text-zinc-500 font-mono">v1.0</span>
+          <span className="text-xs text-muted font-mono">v1.0</span>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => router.push("/wizard")} size="sm">
@@ -94,6 +123,10 @@ export default function HomePage() {
             <Plus className="h-4 w-4" />
             New Project
           </Button>
+          <ThemeSwitcher />
+          <Button onClick={() => setShowSettings(true)} size="sm" variant="ghost">
+            <Settings className="h-4 w-4" />
+          </Button>
         </div>
       </header>
 
@@ -101,12 +134,12 @@ export default function HomePage() {
       <main className="flex-1 overflow-y-auto p-8">
         {projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
-            <div className="w-24 h-24 rounded-2xl bg-zinc-800 flex items-center justify-center">
-              <Sparkles className="h-12 w-12 text-zinc-600" />
+            <div className="w-24 h-24 rounded-2xl bg-surface flex items-center justify-center">
+              <Sparkles className="h-12 w-12 text-muted" />
             </div>
             <div>
               <h2 className="text-2xl font-semibold mb-2">Create Your First Fighter</h2>
-              <p className="text-zinc-400 max-w-md">
+              <p className="text-muted max-w-md">
                 Design pixel art fighter sprites with a built-in editor and AI generation.
                 Generate complete fighter packs with all animations.
               </p>
@@ -133,17 +166,17 @@ export default function HomePage() {
               {/* New project card */}
               <button
                 onClick={() => setShowNewProject(true)}
-                className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-700 p-6 hover:border-accent hover:bg-zinc-800/50 transition-colors min-h-[200px]"
+                className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-6 hover:border-accent hover:bg-surface-hover transition-colors min-h-[200px]"
               >
-                <Plus className="h-8 w-8 text-zinc-500" />
-                <span className="text-sm text-zinc-400">New Project</span>
+                <Plus className="h-8 w-8 text-muted" />
+                <span className="text-sm text-muted">New Project</span>
               </button>
 
               {/* Project cards */}
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  className="group relative flex flex-col rounded-lg border border-zinc-800 bg-zinc-900 hover:border-zinc-700 transition-colors cursor-pointer overflow-hidden"
+                  className="group relative flex flex-col rounded-lg border border-border bg-surface hover:border-muted transition-colors cursor-pointer overflow-hidden"
                   onClick={() =>
                     router.push(
                       `/editor/${project.id}?w=${project.width}&h=${project.height}&name=${encodeURIComponent(project.name)}`
@@ -151,7 +184,7 @@ export default function HomePage() {
                   }
                 >
                   {/* Thumbnail */}
-                  <div className="flex items-center justify-center h-32 bg-zinc-950">
+                  <div className="flex items-center justify-center h-32 bg-surface-alt">
                     {project.thumbnail ? (
                       <img
                         src={project.thumbnail}
@@ -160,13 +193,13 @@ export default function HomePage() {
                         style={{ imageRendering: "pixelated" }}
                       />
                     ) : (
-                      <FolderOpen className="h-10 w-10 text-zinc-700" />
+                      <FolderOpen className="h-10 w-10 text-muted" />
                     )}
                   </div>
                   {/* Info */}
                   <div className="p-3">
                     <p className="text-sm font-medium truncate">{project.name}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-muted">
                       {project.width}×{project.height} &middot;{" "}
                       {new Date(project.createdAt).toLocaleDateString()}
                     </p>
@@ -177,7 +210,7 @@ export default function HomePage() {
                       e.stopPropagation();
                       deleteProject(project.id);
                     }}
-                    className="absolute top-2 right-2 p-1 rounded bg-zinc-800/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    className="absolute top-2 right-2 p-1 rounded bg-surface/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -220,6 +253,8 @@ export default function HomePage() {
           <Button onClick={createProject}>Create</Button>
         </DialogFooter>
       </Dialog>
+
+      <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

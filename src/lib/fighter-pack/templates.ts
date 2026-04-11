@@ -1,4 +1,37 @@
-import { AnimationType, type AnimationTemplate, type LoopMode } from "@/types";
+import { AnimationType, type AnimationTemplate, type CharacterStyle, type LoopMode } from "@/types";
+
+/**
+ * Maps each character style to its relevant animation types.
+ * Fighter gets all 13; others get a curated subset.
+ */
+export const ANIMATION_TYPE_MAP: Record<CharacterStyle, AnimationType[]> = {
+  fighter: [
+    AnimationType.IDLE, AnimationType.WALK, AnimationType.RUN, AnimationType.JUMP,
+    AnimationType.CROUCH, AnimationType.PUNCH, AnimationType.KICK, AnimationType.SPECIAL,
+    AnimationType.HURT, AnimationType.KO, AnimationType.BLOCK, AnimationType.INTRO, AnimationType.WIN,
+  ],
+  platformer: [
+    AnimationType.IDLE, AnimationType.WALK, AnimationType.RUN, AnimationType.JUMP,
+    AnimationType.CROUCH, AnimationType.HURT, AnimationType.KO,
+  ],
+  rpg: [
+    AnimationType.IDLE, AnimationType.WALK, AnimationType.HURT, AnimationType.KO,
+    AnimationType.SPECIAL, AnimationType.INTRO,
+  ],
+  chibi: [
+    AnimationType.IDLE, AnimationType.WALK, AnimationType.JUMP,
+    AnimationType.HURT, AnimationType.INTRO, AnimationType.WIN,
+  ],
+  realistic: [
+    AnimationType.IDLE, AnimationType.WALK, AnimationType.RUN, AnimationType.JUMP,
+    AnimationType.CROUCH, AnimationType.PUNCH, AnimationType.KICK,
+    AnimationType.HURT, AnimationType.KO, AnimationType.BLOCK,
+  ],
+  retro: [
+    AnimationType.IDLE, AnimationType.WALK, AnimationType.RUN, AnimationType.JUMP,
+    AnimationType.PUNCH, AnimationType.KICK, AnimationType.HURT, AnimationType.KO,
+  ],
+};
 
 export const ANIMATION_TEMPLATES: AnimationTemplate[] = [
   {

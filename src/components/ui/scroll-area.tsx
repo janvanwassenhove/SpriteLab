@@ -13,7 +13,7 @@ export function ScrollArea({ className, orientation = "vertical", ...props }: Sc
         orientation === "vertical" && "overflow-y-auto overflow-x-hidden",
         orientation === "horizontal" && "overflow-x-auto overflow-y-hidden",
         orientation === "both" && "overflow-auto",
-        "scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent",
+        "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
         className
       )}
       {...props}

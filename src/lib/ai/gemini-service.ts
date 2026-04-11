@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { AIGenerationResult, GeminiModel } from "@/types";
+import type { AIGenerationResult, GeminiModel, GeminiAnalysisModel } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
 export const GEMINI_MODELS: { value: GeminiModel; label: string; description: string; cost: number }[] = [
@@ -59,7 +59,14 @@ export async function generateImage(
       },
     });
     parts.push({
-      text: "CRITICAL: The image above is the EXACT character you must draw. Your generated sprite MUST depict this SAME character with IDENTICAL colors, clothing, accessories, body proportions, hair, and outline style. Only change the pose/action as described in the prompt. Do NOT alter the character's appearance, outfit, color palette, or visual design in any way.",
+      text: `REFERENCE IMAGE ABOVE — This is the EXACT character you must draw. STRICT RULES:
+1. IDENTICAL clothing/armor items — same pieces, same colors, same design
+2. IDENTICAL skin color, hair style, hair color, eye style
+3. IDENTICAL body proportions — same head-to-body ratio, limb thickness, overall size
+4. IDENTICAL outline color and thickness
+5. IDENTICAL color palette — use ONLY the colors present in the reference
+6. ONLY change the POSE/ACTION as described in the text prompt
+7. Do NOT add, remove, or modify any clothing, accessories, or visual features`,
     });
   }
 
@@ -118,23 +125,69 @@ export async function generateImage(
   };
 }
 
-export async function analyzeSprite(imageBase64: string): Promise<string> {
-  const client = getClient();
-  const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
+const DEFAULT_ANALYSIS_MODEL: GeminiAnalysisModel = "gemini-2.5-flash";
+const MAX_RETRIES = 3;
 
-  const result = await model.generateContent([
+export async function analyzeSprite(
+  imageBase64: string,
+  analysisModel?: GeminiAnalysisModel
+): Promise<string> {
+  const client = getClient();
+  const modelName = analysisModel ?? DEFAULT_ANALYSIS_MODEL;
+  const model = client.getGenerativeModel({ model: modelName });
+
+  const content = [
     {
       inlineData: {
-        mimeType: "image/png",
+        mimeType: "image/png" as const,
         data: imageBase64,
       },
     },
     {
-      text: "Analyze this pixel art sprite character for consistency reference. Describe PRECISELY in a single dense paragraph: 1) Every clothing/armor item and its exact color (use hex codes like #FF0000), 2) Skin/body color (hex), 3) Hair style & color (hex), 4) Eye color/style, 5) Any accessories, weapons, or distinguishing features, 6) Outline color and thickness, 7) Body proportions (head-to-body ratio, limb style). Be extremely specific about every visual detail so the character can be recreated identically in different poses. Under 150 words.",
-    },
-  ]);
+      text: `Analyze this pixel art sprite character for animation consistency. Produce a STRICT visual reference in this exact format:
 
-  return result.response.text();
+BODY: [head-to-body ratio, e.g. "3-head tall chibi" or "4-head proportion"], [build type, e.g. "lean", "stocky"]
+SKIN: [exact hex color, e.g. #FFCC99]
+HAIR: [style] in [hex color], [length/shape details]
+EYES: [style/color]
+HEAD GEAR: [item and hex color, or "none"]
+UPPER BODY: [each clothing item with exact hex color, e.g. "blue plate chest armor #3355AA with gold trim #FFD700"]
+LOWER BODY: [each clothing item with exact hex color, e.g. "brown leather pants #664422"]
+FEET: [footwear with hex color]
+ARMS/HANDS: [gloves/bracers/bare with colors]
+ACCESSORIES: [weapons, capes, belts, jewelry — each with hex color]
+OUTLINE: [color hex, thickness e.g. "1px black #000000"]
+
+Be extremely precise with hex colors. Every visible element must be listed. Under 200 words.`,
+    },
+  ];
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const result = await model.generateContent(content);
+      return result.response.text();
+    } catch (err: unknown) {
+      lastError = err;
+      const status =
+        err instanceof Error && "status" in err
+          ? (err as { status?: number }).status
+          : undefined;
+      // Retry only on 429 (quota) or 503 (overloaded)
+      if (status !== 429 && status !== 503) throw err;
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = Math.pow(2, attempt) * 1000;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Check whether a Gemini API key is available without throwing.
+ */
+export function isGeminiAvailable(): boolean {
+  return !!process.env.GEMINI_API_KEY;
 }
 
 function buildSpritePrompt(userPrompt: string): string {

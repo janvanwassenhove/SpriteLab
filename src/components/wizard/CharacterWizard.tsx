@@ -8,6 +8,7 @@ import { StepAppearance } from "./StepAppearance";
 import { StepAnimations } from "./StepAnimations";
 import { StepSettings } from "./StepSettings";
 import { StepGenerate } from "./StepGenerate";
+import { StepReview } from "./StepReview";
 import { StepComplete } from "./StepComplete";
 import {
   ArrowLeft,
@@ -19,6 +20,7 @@ import {
   Film,
   Settings,
   Sparkles,
+  ShieldCheck,
   CheckCircle,
 } from "lucide-react";
 
@@ -28,6 +30,7 @@ const STEP_META: Record<WizardStep, { label: string; icon: React.ElementType }> 
   animations: { label: "Animations", icon: Film },
   settings: { label: "Settings", icon: Settings },
   generate: { label: "Generate", icon: Sparkles },
+  review: { label: "Review", icon: ShieldCheck },
   complete: { label: "Complete", icon: CheckCircle },
 };
 
@@ -43,6 +46,8 @@ function StepContent({ step }: { step: WizardStep }) {
       return <StepSettings />;
     case "generate":
       return <StepGenerate />;
+    case "review":
+      return <StepReview />;
     case "complete":
       return <StepComplete />;
   }
@@ -83,6 +88,8 @@ export function CharacterWizard() {
         ).length;
         return !isGenerating && doneCount === animationProgress.length && animationProgress.length > 0;
       }
+      case "review":
+        return true;
       case "complete":
         return false; // no "next" from complete
       default:
@@ -131,7 +138,7 @@ export function CharacterWizard() {
                 {idx > 0 && (
                   <div
                     className={`w-8 h-px mx-1 ${
-                      isCompleted ? "bg-indigo-500" : "bg-zinc-700"
+                      isCompleted ? "bg-accent" : "bg-surface"
                     }`}
                   />
                 )}
@@ -140,10 +147,10 @@ export function CharacterWizard() {
                   disabled={!isClickable}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     isActive
-                      ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/50"
+                      ? "bg-accent/20 text-accent border border-accent/50"
                       : isCompleted
                         ? "bg-green-500/10 text-green-400 border border-green-500/30 cursor-pointer hover:bg-green-500/20"
-                        : "text-zinc-500 border border-transparent"
+                        : "text-muted border border-transparent"
                   } ${!isClickable ? "cursor-default" : ""}`}
                 >
                   <Icon className="h-3.5 w-3.5" />

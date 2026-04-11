@@ -1,10 +1,12 @@
 import { create } from "zustand";
-import type { AIProvider, AnimationType, GeminiModel, OpenAIModel } from "@/types";
+import type { AIProvider, AnimationType, CharacterStyle, ConsistencyReport, GeminiModel, OpenAIModel, SpriteSize } from "@/types";
 import { ANIMATION_TEMPLATES } from "@/lib/fighter-pack/templates";
 import { DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini-service";
 import { DEFAULT_OPENAI_MODEL } from "@/lib/ai/openai-service";
 
-export type WizardStep = "concept" | "appearance" | "animations" | "settings" | "generate" | "complete";
+export type { CharacterStyle } from "@/types";
+
+export type WizardStep = "concept" | "appearance" | "animations" | "settings" | "generate" | "review" | "complete";
 
 export const WIZARD_STEPS: WizardStep[] = [
   "concept",
@@ -12,22 +14,31 @@ export const WIZARD_STEPS: WizardStep[] = [
   "animations",
   "settings",
   "generate",
+  "review",
   "complete",
 ];
-
-export type CharacterStyle =
-  | "fighter"
-  | "platformer"
-  | "rpg"
-  | "chibi"
-  | "realistic"
-  | "retro";
 
 export type ArtStyle =
   | "pixel-16"
   | "pixel-32"
   | "pixel-64"
   | "pixel-128";
+
+function getSpriteSize(artStyle: ArtStyle): SpriteSize {
+  const map: Record<ArtStyle, SpriteSize> = {
+    "pixel-16": 16,
+    "pixel-32": 32,
+    "pixel-64": 64,
+    "pixel-128": 128,
+  };
+  return map[artStyle];
+}
+
+function artStyleFromSize(size: SpriteSize): ArtStyle {
+  return `pixel-${size}` as ArtStyle;
+}
+
+export { getSpriteSize, artStyleFromSize };
 
 export interface GeneratedFrame {
   animationType: AnimationType;
@@ -110,25 +121,19 @@ interface WizardStore {
   addGeneratedFrame: (frame: GeneratedFrame) => void;
   regenerateAnimation: (type: AnimationType) => void;
 
-  // Step 6: Complete
+  // Step 6: Review (consistency evaluation)
+  consistencyReport: ConsistencyReport | null;
+  isEvaluating: boolean;
+  setConsistencyReport: (report: ConsistencyReport | null) => void;
+  setIsEvaluating: (v: boolean) => void;
+
+  // Step 7: Complete
   projectId: string | null;
   setProjectId: (id: string | null) => void;
 
   // Reset
   reset: () => void;
 }
-
-function getSpriteSize(artStyle: ArtStyle): number {
-  const map: Record<ArtStyle, number> = {
-    "pixel-16": 16,
-    "pixel-32": 32,
-    "pixel-64": 64,
-    "pixel-128": 128,
-  };
-  return map[artStyle];
-}
-
-export { getSpriteSize };
 
 export const useWizardStore = create<WizardStore>((set, get) => ({
   currentStep: "concept",
@@ -234,6 +239,11 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       ),
     })),
 
+  consistencyReport: null,
+  isEvaluating: false,
+  setConsistencyReport: (report) => set({ consistencyReport: report }),
+  setIsEvaluating: (v) => set({ isEvaluating: v }),
+
   projectId: null,
   setProjectId: (id) => set({ projectId: id }),
 
@@ -262,6 +272,8 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       isGenerating: false,
       animationProgress: [],
       generatedFrames: [],
+      consistencyReport: null,
+      isEvaluating: false,
       projectId: null,
     }),
 }));

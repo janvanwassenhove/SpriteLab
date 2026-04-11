@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { generateImage as openaiGenerate } from "@/lib/ai/openai-service";
 import { generateImage as geminiGenerate } from "@/lib/ai/gemini-service";
+import { analyzeSprite, isAnalysisAvailable } from "@/lib/ai/analysis-router";
 import { buildGenerationQueue } from "@/lib/fighter-pack/generator";
-import type { AIProvider, AnimationType } from "@/types";
+import { describePaletteForPrompt } from "@/lib/fighter-pack/consistency";
+import { extractPaletteFromBase64 } from "@/lib/ai/reference-analyzer";
+import type { AIProvider, AnimationType, AnalysisModel } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +20,7 @@ export async function POST(req: NextRequest) {
       width,
       height,
       frameCountOverrides,
+      baseCharacterImage,
     }: {
       fighterName: string;
       description: string;
@@ -27,6 +31,8 @@ export async function POST(req: NextRequest) {
       width: number;
       height: number;
       frameCountOverrides?: Partial<Record<AnimationType, number>>;
+      baseCharacterImage?: string;
+      analysisModel?: AnalysisModel;
     } = body;
 
     if (!fighterName || !description || !animations?.length) {
@@ -36,8 +42,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ---- Character consistency: extract detail from reference ----
+    let characterAnalysis = "";
+    let paletteDescription = "";
+
+    const selectedAnalysisModel: AnalysisModel = body.analysisModel ?? "gemini-2.5-flash";
+
+    if (baseCharacterImage) {
+      // 1) Pixel palette extraction (always available, no API needed)
+      try {
+        const { palette, width: palW, height: palH } = await extractPaletteFromBase64(baseCharacterImage);
+        paletteDescription = describePaletteForPrompt(palette, palW, palH);
+      } catch (err) {
+        console.warn("Could not extract pixel palette from reference:", err);
+      }
+
+      // 2) AI vision analysis for clothing/accessories
+      if (isAnalysisAvailable(selectedAnalysisModel)) {
+        try {
+          characterAnalysis = await analyzeSprite(baseCharacterImage, selectedAnalysisModel);
+        } catch (err) {
+          console.warn("Could not analyze base sprite for consistency:", err);
+        }
+      }
+    }
+
     const baseDescription = `${fighterName}: ${description}`;
-    const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly, frameCountOverrides);
+    const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly, frameCountOverrides, {
+      characterAppearance: characterAnalysis || undefined,
+      paletteInfo: paletteDescription || undefined,
+    });
 
     // Group jobs by animation type for progress tracking
     const jobsByAnim = new Map<string, typeof jobs>();
@@ -71,10 +105,13 @@ export async function POST(req: NextRequest) {
                     width: width || 1024,
                     height: height || 1024,
                     quality,
+                    referenceImage: baseCharacterImage,
                   });
                   imageData = results[0]?.imageData ?? null;
                 } else {
-                  const result = await geminiGenerate(job.prompt);
+                  const result = await geminiGenerate(job.prompt, {
+                    referenceImage: baseCharacterImage,
+                  });
                   imageData = result.imageData ?? null;
                 }
               } catch (err) {

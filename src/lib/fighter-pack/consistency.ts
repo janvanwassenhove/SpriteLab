@@ -155,3 +155,53 @@ export function consistencyScore(
   if (pixelCount === 0) return 0;
   return 1 - totalDiff / pixelCount;
 }
+
+/**
+ * Build a concise text description of a sprite's color palette for prompt injection.
+ * Returns hex color list grouped by role (dominant, secondary, outline/dark, highlights).
+ * Does NOT require any AI provider — purely pixel-based analysis.
+ */
+export function describePaletteForPrompt(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number
+): string {
+  const colors = extractDominantColors(data, 12);
+  if (colors.length === 0) return "";
+
+  const toHex = (c: Color) =>
+    `#${c.r.toString(16).padStart(2, "0")}${c.g.toString(16).padStart(2, "0")}${c.b.toString(16).padStart(2, "0")}`;
+
+  const hexList = colors.map(toHex);
+  const outline = detectOutline(data, width, height);
+
+  const parts: string[] = [
+    `Exact color palette (must use ONLY these colors): ${hexList.join(", ")}`,
+  ];
+
+  if (outline.hasOutline && outline.color) {
+    parts.push(`Outline color: ${toHex(outline.color)}`);
+  }
+
+  // Identify potential skin-tone colors (warm hues, medium lightness)
+  const skinColors = colors.filter((c) => {
+    const r = c.r / 255, g = c.g / 255, b = c.b / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    if (max === min) return false;
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let h = 0;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+    h *= 360;
+    return h >= 0 && h <= 50 && s >= 0.15 && s <= 0.85 && l >= 0.25 && l <= 0.85;
+  });
+
+  if (skinColors.length > 0) {
+    parts.push(`Skin/body tones: ${skinColors.map(toHex).join(", ")}`);
+  }
+
+  return parts.join(". ");
+}

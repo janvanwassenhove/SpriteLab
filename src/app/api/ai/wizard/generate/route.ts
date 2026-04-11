@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { generateImage as openaiGenerate } from "@/lib/ai/openai-service";
-import { generateImage as geminiGenerate, analyzeSprite } from "@/lib/ai/gemini-service";
+import { generateImage as geminiGenerate } from "@/lib/ai/gemini-service";
+import { analyzeSprite, isAnalysisAvailable } from "@/lib/ai/analysis-router";
 import { buildGenerationQueue } from "@/lib/fighter-pack/generator";
-import type { AIProvider, AnimationType, GeminiModel, OpenAIModel } from "@/types";
+import { describePaletteForPrompt } from "@/lib/fighter-pack/consistency";
+import { extractPaletteFromBase64 } from "@/lib/ai/reference-analyzer";
+import type { AIProvider, AnimationType, GeminiModel, OpenAIModel, AnalysisModel } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
       geminiModel?: GeminiModel;
       openaiModel?: OpenAIModel;
       frameCountOverrides?: Partial<Record<AnimationType, number>>;
+      analysisModel?: AnalysisModel;
     } = body;
 
     if (!fighterName || !description || !animations?.length) {
@@ -54,22 +58,44 @@ export async function POST(req: NextRequest) {
     const safeWidth = Math.min(Math.max(16, width || 64), 1024);
     const safeHeight = Math.min(Math.max(16, height || 64), 1024);
 
-    // Only use Gemini vision analysis when Gemini is the selected generator.
-    // OpenAI runs should not depend on the Google API.
-    let characterAnalysis = "";
-    if (referenceImage && provider === "gemini") {
+    // ---- Character consistency: extract as much detail from the reference as possible ----
+    let characterAnalysis = "";  // AI vision description (clothing, colors, proportions)
+    let paletteDescription = ""; // Pixel-extracted hex color palette (always available)
+
+    const selectedAnalysisModel: AnalysisModel = body.analysisModel ?? "gemini-2.5-flash";
+
+    if (referenceImage) {
+      // 1) Always extract the pixel palette — free, no API needed
       try {
-        characterAnalysis = await analyzeSprite(referenceImage);
+        const { palette, width: palW, height: palH } = await extractPaletteFromBase64(referenceImage);
+        paletteDescription = describePaletteForPrompt(palette, palW, palH);
       } catch (err) {
-        console.warn("Could not analyze base sprite for consistency:", err);
+        console.warn("Could not extract pixel palette from reference:", err);
+      }
+
+      // 2) AI vision analysis for clothing/accessories
+      if (isAnalysisAvailable(selectedAnalysisModel)) {
+        try {
+          characterAnalysis = await analyzeSprite(referenceImage, selectedAnalysisModel);
+        } catch (err) {
+          console.warn("Could not analyze base sprite for consistency:", err);
+        }
       }
     }
 
-    const consistencyDetails = characterAnalysis
-      ? ` EXACT CHARACTER APPEARANCE (must be preserved in every frame): ${characterAnalysis}`
+    // Build the consistency instruction block injected into every frame prompt
+    const consistencyParts: string[] = [];
+    if (characterAnalysis) {
+      consistencyParts.push(`EXACT CHARACTER APPEARANCE (must be preserved in every frame): ${characterAnalysis}`);
+    }
+    if (paletteDescription) {
+      consistencyParts.push(paletteDescription);
+    }
+    const consistencyBlock = consistencyParts.length > 0
+      ? ` ${consistencyParts.join(". ")}`
       : "";
 
-    const baseDescription = `${characterStyle} character pixel art sprite: ${fighterName}. ${description}.${consistencyDetails} You MUST maintain identical character design, colors, clothing, and proportions across all frames — only the pose changes.`;
+    const baseDescription = `${characterStyle} character pixel art sprite: ${fighterName}. ${description}.${consistencyBlock} You MUST maintain identical character design, colors, clothing, and proportions across all frames — only the pose changes.`;
     const jobs = buildGenerationQueue(baseDescription, animations, keyFramesOnly, frameCountOverrides);
 
     // Group jobs by animation type

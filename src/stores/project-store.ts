@@ -75,7 +75,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
     const animId = uuid();
     const defaultAnim: Animation = {
       id: animId,
-      name: "Idle",
+      name: "Reference",
       frames: [defaultFrame],
       loop: "loop",
     };

@@ -396,7 +396,7 @@ export function Canvas() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-zinc-950 overflow-hidden cursor-crosshair"
+      className="relative w-full h-full bg-surface-alt overflow-hidden cursor-crosshair"
       onContextMenu={(e) => e.preventDefault()}
     >
       <canvas
@@ -414,7 +414,7 @@ export function Canvas() {
         onWheel={handleWheel}
       />
       {/* Zoom indicator */}
-      <div className="absolute bottom-2 right-2 bg-zinc-800/80 px-2 py-0.5 rounded text-xs text-zinc-400 font-mono">
+      <div className="absolute bottom-2 right-2 bg-surface/80 px-2 py-0.5 rounded text-xs text-muted font-mono">
         {zoom}x
       </div>
     </div>

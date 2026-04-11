@@ -18,15 +18,15 @@ export function StatusBar() {
   const frameCount = currentAnimation?.frames.length ?? 0;
 
   return (
-    <footer className="flex items-center justify-between border-t border-border px-3 py-0.5 h-6 text-[10px] text-zinc-500 font-mono shrink-0 bg-surface">
+    <footer className="flex items-center justify-between border-t border-border px-3 py-0.5 h-6 text-[10px] text-muted font-mono shrink-0 bg-surface">
       <div className="flex items-center gap-3">
         <span className="uppercase">{tool}</span>
         <span>Brush: {brushSize}px</span>
         <span>
           {canvasWidth}×{canvasHeight}
         </span>
-        {mirrorX && <span className="text-indigo-400">MirrorX</span>}
-        {mirrorY && <span className="text-indigo-400">MirrorY</span>}
+        {mirrorX && <span className="text-accent">MirrorX</span>}
+        {mirrorY && <span className="text-accent">MirrorY</span>}
       </div>
       <div className="flex items-center gap-3">
         <span>

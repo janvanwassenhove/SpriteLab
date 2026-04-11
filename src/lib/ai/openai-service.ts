@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { AIGenerationResult, OpenAIModel } from "@/types";
+import type { AIGenerationResult, OpenAIModel, OpenAIAnalysisModel } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
 export const OPENAI_MODELS: { value: OpenAIModel; label: string; description: string; cost: { low: number; medium: number; high: number } }[] = [
@@ -45,14 +45,15 @@ export async function generateImage(
 
   // If we have a reference image and gpt-image-1, use edit mode for consistency
   if (referenceImage && model === "gpt-image-1") {
-    const imageBuffer = Buffer.from(referenceImage, "base64");
+    const rawBase64 = referenceImage.replace(/^data:image\/[^;]+;base64,/, "");
+    const imageBuffer = Buffer.from(rawBase64, "base64");
     const imageFile = new File([imageBuffer], "reference.png", { type: "image/png" });
 
     const response = await withSafetyRetry((retryPrompt) =>
       client.images.edit({
         model: "gpt-image-1",
         image: imageFile,
-        prompt: `${retryPrompt} CRITICAL: Keep the EXACT same character — identical colors, clothing, accessories, body proportions, hair, and outline style. Only change the pose/action as described.`,
+        prompt: `${retryPrompt} STRICT RULES: 1) IDENTICAL clothing/armor — same items, same colors. 2) IDENTICAL skin, hair, and eye colors. 3) IDENTICAL body proportions and outline. 4) Use ONLY colors from the reference. 5) ONLY change the pose/action as described. Do NOT modify the character's visual design.`,
         size,
       }),
       spritePrompt
@@ -128,10 +129,12 @@ export async function editImage(
   const client = getClient();
   const { size = "1024x1024" } = options;
 
-  const imageBuffer = Buffer.from(imageBase64, "base64");
+  const rawImage = imageBase64.replace(/^data:image\/[^;]+;base64,/, "");
+  const imageBuffer = Buffer.from(rawImage, "base64");
   const imageFile = new File([imageBuffer], "image.png", { type: "image/png" });
 
-  const maskBuffer = Buffer.from(maskBase64, "base64");
+  const rawMask = maskBase64.replace(/^data:image\/[^;]+;base64,/, "");
+  const maskBuffer = Buffer.from(rawMask, "base64");
   const maskFile = new File([maskBuffer], "mask.png", { type: "image/png" });
 
   const spritePrompt = buildSpritePrompt(prompt);
@@ -217,4 +220,69 @@ function pickSize(w: number, h: number): "1024x1024" | "1536x1024" | "1024x1536"
 function estimateCost(quality: string, count: number): number {
   const perImage = quality === "high" ? 0.08 : quality === "medium" ? 0.04 : 0.02;
   return perImage * count;
+}
+
+const DEFAULT_OPENAI_ANALYSIS_MODEL: OpenAIAnalysisModel = "gpt-5.4-nano";
+const MAX_ANALYSIS_RETRIES = 3;
+
+export async function analyzeSprite(
+  imageBase64: string,
+  analysisModel?: OpenAIAnalysisModel
+): Promise<string> {
+  const client = getClient();
+  const model = analysisModel ?? DEFAULT_OPENAI_ANALYSIS_MODEL;
+  const rawBase64 = imageBase64.replace(/^data:image\/[^;]+;base64,/, "");
+
+  const prompt = `Analyze this pixel art sprite character for animation consistency. Produce a STRICT visual reference in this exact format:
+
+BODY: [head-to-body ratio, e.g. "3-head tall chibi" or "4-head proportion"], [build type, e.g. "lean", "stocky"]
+SKIN: [exact hex color, e.g. #FFCC99]
+HAIR: [style] in [hex color], [length/shape details]
+EYES: [style/color]
+HEAD GEAR: [item and hex color, or "none"]
+UPPER BODY: [each clothing item with exact hex color, e.g. "blue plate chest armor #3355AA with gold trim #FFD700"]
+LOWER BODY: [each clothing item with exact hex color, e.g. "brown leather pants #664422"]
+FEET: [footwear with hex color]
+ARMS/HANDS: [gloves/bracers/bare with colors]
+ACCESSORIES: [weapons, capes, belts, jewelry — each with hex color]
+OUTLINE: [color hex, thickness e.g. "1px black #000000"]
+
+Be extremely precise with hex colors. Every visible element must be listed. Under 200 words.`;
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ANALYSIS_RETRIES; attempt++) {
+    try {
+      const response = await client.chat.completions.create({
+        model,
+        max_tokens: 500,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: `data:image/png;base64,${rawBase64}` },
+              },
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+      });
+      return response.choices[0]?.message?.content ?? "";
+    } catch (err: unknown) {
+      lastError = err;
+      const status =
+        err instanceof Error && "status" in err
+          ? (err as { status?: number }).status
+          : undefined;
+      if (status !== 429 && status !== 503) throw err;
+      const delay = Math.pow(2, attempt) * 1000;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+export function isOpenAIAvailable(): boolean {
+  return !!process.env.OPENAI_API_KEY;
 }

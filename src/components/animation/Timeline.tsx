@@ -18,6 +18,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FilePlus2,
+  Repeat,
+  Repeat1,
 } from "lucide-react";
 import { cn } from "@/utils";
 import type { Animation, Frame, Layer } from "@/types";
@@ -38,6 +40,7 @@ export function Timeline() {
   const playbackSpeed = useProjectStore((s) => s.playbackSpeed);
   const setPlaybackSpeed = useProjectStore((s) => s.setPlaybackSpeed);
   const updateFrame = useProjectStore((s) => s.updateFrame);
+  const updateAnimation = useProjectStore((s) => s.updateAnimation);
   const canvasWidth = useEditorStore((s) => s.canvasWidth);
   const canvasHeight = useEditorStore((s) => s.canvasHeight);
   const setLayers = useEditorStore((s) => s.setLayers);
@@ -194,7 +197,7 @@ export function Timeline() {
               "shrink-0 px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
               anim.id === currentAnimation?.id
                 ? "bg-accent text-white"
-                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
+                : "bg-surface text-muted hover:bg-surface-hover hover:text-foreground"
             )}
           >
             {anim.name}
@@ -211,7 +214,7 @@ export function Timeline() {
               value={newAnimName}
               onChange={(e) => setNewAnimName(e.target.value)}
               placeholder="Animation name"
-              className="h-5 w-28 text-[11px] bg-zinc-800 border border-zinc-600 rounded px-1.5 text-zinc-300 focus:outline-none focus:border-accent"
+              className="h-5 w-28 text-[11px] bg-surface border border-border rounded px-1.5 text-foreground focus:outline-none focus:border-accent"
               onKeyDown={(e) => { if (e.key === "Escape") { setIsAddingAnim(false); setNewAnimName(""); } }}
             />
             <Button type="submit" variant="ghost" size="icon" className="h-5 w-5" disabled={!newAnimName.trim()}>
@@ -233,7 +236,7 @@ export function Timeline() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 shrink-0 text-zinc-500 hover:text-red-400"
+            className="h-5 w-5 shrink-0 text-muted hover:text-red-400"
             onClick={handleDeleteAnimation}
             title="Delete current animation"
           >
@@ -260,7 +263,15 @@ export function Timeline() {
           variant={isPlaying ? "secondary" : "ghost"}
           size="icon"
           className="h-6 w-6"
-          onClick={() => setIsPlaying(!isPlaying)}
+          onClick={() => {
+            if (!isPlaying && currentAnimation?.loop === "once") {
+              // Reset to start when playing in "once" mode and at end
+              if (currentFrameIndex >= frames.length - 1) {
+                setCurrentFrameIndex(0);
+              }
+            }
+            setIsPlaying(!isPlaying);
+          }}
         >
           {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
         </Button>
@@ -281,14 +292,39 @@ export function Timeline() {
           <SkipForward className="h-3.5 w-3.5" />
         </Button>
 
+        {/* Loop mode */}
+        <Button
+          variant={currentAnimation?.loop === "loop" ? "secondary" : "ghost"}
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => {
+            if (!currentAnimation) return;
+            const next = currentAnimation.loop === "loop" ? "once" : "loop";
+            updateAnimation(currentAnimation.id, { loop: next });
+            // Also update the local currentAnimation mirror
+            useProjectStore.setState((s) => ({
+              currentAnimation: s.currentAnimation
+                ? { ...s.currentAnimation, loop: next }
+                : null,
+            }));
+          }}
+          title={currentAnimation?.loop === "loop" ? "Looping (click for play once)" : "Play once (click for loop)"}
+        >
+          {currentAnimation?.loop === "loop" ? (
+            <Repeat className="h-3.5 w-3.5" />
+          ) : (
+            <Repeat1 className="h-3.5 w-3.5" />
+          )}
+        </Button>
+
         <div className="w-px h-4 bg-border mx-1" />
 
         {/* Speed */}
-        <span className="text-[10px] text-zinc-500">Speed:</span>
+        <span className="text-[10px] text-muted">Speed:</span>
         <select
           value={playbackSpeed}
           onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-          className="h-5 text-[10px] bg-zinc-800 border border-zinc-700 rounded px-1 text-zinc-300"
+          className="h-5 text-[10px] bg-surface border border-border rounded px-1 text-foreground"
         >
           <option value={0.25}>0.25x</option>
           <option value={0.5}>0.5x</option>
@@ -300,7 +336,7 @@ export function Timeline() {
         {/* Frame delay */}
         {frames[currentFrameIndex] && (
           <>
-            <span className="text-[10px] text-zinc-500 ml-2">Delay:</span>
+            <span className="text-[10px] text-muted ml-2">Delay:</span>
             <input
               type="number"
               value={frames[currentFrameIndex].delay}
@@ -308,9 +344,9 @@ export function Timeline() {
                 const frame = frames[currentFrameIndex];
                 updateFrame(frame.id, { delay: Math.max(10, parseInt(e.target.value) || 100) });
               }}
-              className="w-12 h-5 text-[10px] bg-zinc-800 border border-zinc-700 rounded px-1 text-zinc-300 text-center"
+              className="w-12 h-5 text-[10px] bg-surface border border-border rounded px-1 text-foreground text-center"
             />
-            <span className="text-[10px] text-zinc-500">ms</span>
+            <span className="text-[10px] text-muted">ms</span>
           </>
         )}
 
@@ -327,7 +363,7 @@ export function Timeline() {
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
 
-        <span className="text-[10px] text-zinc-500 ml-1 font-mono">
+        <span className="text-[10px] text-muted ml-1 font-mono">
           {currentFrameIndex + 1}/{frames.length}
         </span>
       </div>
@@ -379,11 +415,14 @@ function FrameThumbnail({
     canvas.height = thumbSize;
     const ctx = canvas.getContext("2d")!;
 
-    // Checkerboard background
+    // Checkerboard background — read theme surface colors from CSS vars
+    const rootStyle = getComputedStyle(document.documentElement);
+    const checkLight = rootStyle.getPropertyValue("--surface-hover").trim() || "#2a2a2e";
+    const checkDark = rootStyle.getPropertyValue("--surface-alt").trim() || "#1e1e22";
     const checkSize = 4;
     for (let y = 0; y < thumbSize; y += checkSize) {
       for (let x = 0; x < thumbSize; x += checkSize) {
-        ctx.fillStyle = (x + y) % (checkSize * 2) === 0 ? "#2a2a2e" : "#1e1e22";
+        ctx.fillStyle = (x + y) % (checkSize * 2) === 0 ? checkLight : checkDark;
         ctx.fillRect(x, y, checkSize, checkSize);
       }
     }
@@ -406,7 +445,7 @@ function FrameThumbnail({
       onClick={onClick}
       className={cn(
         "shrink-0 flex flex-col items-center gap-0.5 rounded transition-colors",
-        isActive ? "ring-2 ring-accent" : "hover:ring-1 hover:ring-zinc-600"
+        isActive ? "ring-2 ring-accent" : "hover:ring-1 hover:ring-border"
       )}
     >
       <canvas
@@ -414,7 +453,7 @@ function FrameThumbnail({
         className="w-12 h-12 rounded"
         style={{ imageRendering: "pixelated" }}
       />
-      <span className="text-[9px] text-zinc-500 font-mono">{index + 1}</span>
+      <span className="text-[9px] text-muted font-mono">{index + 1}</span>
     </button>
   );
 }

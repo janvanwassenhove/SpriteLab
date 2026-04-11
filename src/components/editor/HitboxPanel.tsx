@@ -64,7 +64,7 @@ export function HitboxPanel() {
           onClick={toggleHitboxes}
           className={cn(
             "w-10 h-5 rounded-full transition-colors relative",
-            showHitboxes ? "bg-indigo-600" : "bg-zinc-700"
+            showHitboxes ? "bg-accent" : "bg-surface-hover"
           )}
         >
           <div
@@ -78,7 +78,7 @@ export function HitboxPanel() {
 
       {/* Hitbox type selector */}
       <div>
-        <span className="text-xs text-zinc-400 block mb-1">Draw Type</span>
+        <span className="text-xs text-muted block mb-1">Draw Type</span>
         <div className="flex gap-1">
           {HITBOX_TYPES.map(({ type, label, color }) => (
             <button
@@ -91,7 +91,7 @@ export function HitboxPanel() {
                 "flex-1 px-2 py-1 rounded text-xs font-medium transition-colors",
                 activeHitboxType === type && tool === "hitbox"
                   ? `${color} text-white`
-                  : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                  : "bg-surface text-muted hover:text-foreground"
               )}
             >
               {label}
@@ -102,11 +102,11 @@ export function HitboxPanel() {
 
       {/* Hitbox list */}
       <div>
-        <span className="text-xs text-zinc-400 block mb-1">
+        <span className="text-xs text-muted block mb-1">
           Current Frame ({hitboxes.length})
         </span>
         {hitboxes.length === 0 ? (
-          <p className="text-xs text-zinc-600">
+          <p className="text-xs text-muted">
             No hitboxes. Select the hitbox tool and draw on the canvas.
           </p>
         ) : (
@@ -114,7 +114,7 @@ export function HitboxPanel() {
             {hitboxes.map((hb: Hitbox) => (
               <div
                 key={hb.id}
-                className="flex items-center justify-between bg-zinc-800 rounded px-2 py-1"
+                className="flex items-center justify-between bg-surface rounded px-2 py-1"
               >
                 <div className="flex items-center gap-2">
                   <div
@@ -125,13 +125,13 @@ export function HitboxPanel() {
                       hb.type === "pushbox" && "bg-blue-500"
                     )}
                   />
-                  <span className="text-xs text-zinc-300">
+                  <span className="text-xs text-foreground">
                     {hb.type} ({hb.rect.x},{hb.rect.y}) {hb.rect.width}×{hb.rect.height}
                   </span>
                 </div>
                 <button
                   onClick={() => deleteHitbox(hb.id)}
-                  className="text-zinc-500 hover:text-red-400"
+                  className="text-muted hover:text-red-400"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -144,7 +144,7 @@ export function HitboxPanel() {
       {/* Propagation */}
       {hitboxes.length > 0 && (
         <div className="space-y-1">
-          <span className="text-xs text-zinc-400 block">Propagate</span>
+          <span className="text-xs text-muted block">Propagate</span>
           <Button
             variant="outline"
             size="sm"

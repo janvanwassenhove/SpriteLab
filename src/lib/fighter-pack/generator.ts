@@ -1,6 +1,6 @@
-import type { AnimationType, AIProvider, FighterPackAnimationState } from "@/types";
+import type { AnimationType, FighterPackAnimationState } from "@/types";
 import { ANIMATION_TEMPLATES, getTemplate } from "./templates";
-import { buildAnimationPrompt, getKeyFrameIndices } from "@/lib/ai/prompt-builder";
+import { buildAnimationPrompt, getKeyFrameIndices, type AnimationPromptOptions } from "@/lib/ai/prompt-builder";
 
 export interface GenerationJob {
   animationType: AnimationType;
@@ -16,7 +16,8 @@ export function buildGenerationQueue(
   baseDescription: string,
   animationTypes: AnimationType[],
   keyFramesOnly: boolean,
-  frameCountOverrides?: Partial<Record<AnimationType, number>>
+  frameCountOverrides?: Partial<Record<AnimationType, number>>,
+  promptOptions?: AnimationPromptOptions,
 ): GenerationJob[] {
   const jobs: GenerationJob[] = [];
 
@@ -31,7 +32,7 @@ export function buildGenerationQueue(
           animationType: type,
           frameIndex: idx,
           totalFrames: template.defaultFrameCount,
-          prompt: buildAnimationPrompt(baseDescription, type, idx, template.defaultFrameCount),
+          prompt: buildAnimationPrompt(baseDescription, type, idx, template.defaultFrameCount, promptOptions),
         });
       }
     } else {
@@ -40,7 +41,7 @@ export function buildGenerationQueue(
           animationType: type,
           frameIndex: i,
           totalFrames,
-          prompt: buildAnimationPrompt(baseDescription, type, i, totalFrames),
+          prompt: buildAnimationPrompt(baseDescription, type, i, totalFrames, promptOptions),
         });
       }
     }

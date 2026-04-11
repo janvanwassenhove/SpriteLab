@@ -110,6 +110,29 @@ When implementing a new feature:
 
 ---
 
+## Wizard ↔ Editor Consistency
+
+The **character wizard** (`src/components/wizard/`) and the **editor** (`src/components/editor/`, `src/components/ai/`) share the same character concept options. When a setting exists in one, it must exist in the other with identical choices.
+
+### Shared Definitions
+
+| Concept | Shared source | Used by |
+|---|---|---|
+| **Sprite size** | `SpriteSize` type + `SPRITE_SIZES` constant in `src/types/index.ts` | Wizard `StepAppearance`, Editor `GenerationPanel` |
+| **Character style** | `CharacterStyle` type in `src/types/index.ts` | Wizard `StepConcept`, Editor concept |
+| **AI provider / models** | `AIProvider`, `GeminiModel`, `OpenAIModel` in `src/types/index.ts` | Wizard `StepSettings`, Editor `GenerationPanel`, `FighterPackPanel` |
+| **Animation types** | `AnimationType` enum in `src/types/index.ts` | Wizard `StepAnimations`, Editor `Timeline`, `FighterPackPanel` |
+
+### Rules
+
+- **Options live in `src/types/index.ts`** — define all shared enums, types, and option-list constants there. Never duplicate option arrays across components.
+- **Wizard store bridges wizard-specific state** — `ArtStyle` in `wizard-store.ts` maps to `SpriteSize` via `getSpriteSize()` / `artStyleFromSize()`. New per-step state that doesn't apply to the editor stays in the wizard store.
+- **Editor store owns runtime state** — `canvasWidth`/`canvasHeight` in `editor-store.ts` hold the active sprite dimensions. The `GenerationPanel` reads and writes them directly.
+- **When adding a character option** — add the type and constant to `src/types/index.ts` first, then surface it in both wizard step and editor panel. Verify both UIs offer the same choices.
+- **API routes accept the raw values** — routes like `/api/ai/generate` and `/api/ai/wizard/generate` receive numeric `width`/`height`, not wizard-specific `ArtStyle` strings.
+
+---
+
 ## Patterns to Follow
 
 ### Adding a Drawing Tool

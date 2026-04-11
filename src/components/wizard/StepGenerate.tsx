@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useWizardStore, getSpriteSize } from "@/stores/wizard-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { ANIMATION_TEMPLATES } from "@/lib/fighter-pack/templates";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function StepGenerate() {
   const frameCountOverrides = useWizardStore((s) => s.frameCountOverrides);
   const isGenerating = useWizardStore((s) => s.isGenerating);
   const setIsGenerating = useWizardStore((s) => s.setIsGenerating);
+  const settingsAnalysisModel = useSettingsStore((s) => s.analysisModel);
   const animationProgress = useWizardStore((s) => s.animationProgress);
   const initAnimationProgress = useWizardStore((s) => s.initAnimationProgress);
   const updateAnimationProgress = useWizardStore((s) => s.updateAnimationProgress);
@@ -71,6 +73,7 @@ export function StepGenerate() {
           geminiModel: provider === "gemini" ? geminiModel : undefined,
           openaiModel: provider === "openai" ? openaiModel : undefined,
           frameCountOverrides,
+          analysisModel: settingsAnalysisModel,
         }),
       });
 
@@ -153,7 +156,7 @@ export function StepGenerate() {
     <div className="space-y-6 max-w-3xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold mb-1">Generate Animations</h2>
-        <p className="text-zinc-400 text-sm">
+        <p className="text-muted text-sm">
           {isGenerating
             ? "Generating your character's animations..."
             : allDone
@@ -172,19 +175,19 @@ export function StepGenerate() {
 
       {/* Overall progress */}
       {(isGenerating || allDone) && (
-        <div className="bg-zinc-800/50 rounded-lg p-4 space-y-3">
+        <div className="bg-surface/50 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-accent" />
               ) : (
                 <CheckCircle className="h-4 w-4 text-green-500" />
               )}
-              <span className="text-sm font-medium text-zinc-200">
+              <span className="text-sm font-medium text-foreground">
                 {isGenerating ? "Generating..." : "Complete"}
               </span>
             </div>
-            <span className="text-xs text-zinc-400">
+            <span className="text-xs text-muted">
               {doneCount}/{totalCount} animations
             </span>
           </div>
@@ -208,8 +211,8 @@ export function StepGenerate() {
                     : ap.status === "error"
                       ? "border-red-500/30 bg-red-500/5"
                       : ap.status === "generating"
-                        ? "border-indigo-500/30 bg-indigo-500/5"
-                        : "border-zinc-700 bg-zinc-800/30"
+                        ? "border-accent/30 bg-accent/5"
+                        : "border-border bg-surface/50"
                 }`}
               >
                 {/* Status icon */}
@@ -219,17 +222,17 @@ export function StepGenerate() {
                   ) : ap.status === "error" ? (
                     <AlertCircle className="h-5 w-5 text-red-500" />
                   ) : ap.status === "generating" ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
+                    <Loader2 className="h-5 w-5 animate-spin text-accent" />
                   ) : (
-                    <Clock className="h-5 w-5 text-zinc-600" />
+                    <Clock className="h-5 w-5 text-muted" />
                   )}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-zinc-200">{tmpl.label}</span>
-                    <span className="text-xs text-zinc-500">{Math.round(ap.progress)}%</span>
+                    <span className="text-sm font-medium text-foreground">{tmpl.label}</span>
+                    <span className="text-xs text-muted">{Math.round(ap.progress)}%</span>
                   </div>
                   {ap.status === "generating" && (
                     <Progress value={ap.progress} className="mt-1.5 h-1.5" />
@@ -245,7 +248,7 @@ export function StepGenerate() {
                     {ap.frames.slice(0, 3).map((frame, i) => (
                       <div
                         key={i}
-                        className="w-10 h-10 rounded border border-zinc-700 bg-zinc-950 overflow-hidden flex items-center justify-center"
+                        className="w-10 h-10 rounded border border-border bg-surface-alt overflow-hidden flex items-center justify-center"
                       >
                         <img
                           src={`data:image/png;base64,${frame.imageData}`}

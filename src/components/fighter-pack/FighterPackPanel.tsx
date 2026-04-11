@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { v4 as uuid } from "uuid";
 import { useProjectStore } from "@/stores/project-store";
 import { useAIStore } from "@/stores/ai-store";
 import { useEditorStore } from "@/stores/editor-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import {
-  Swords,
+  Package,
   Play,
   Loader2,
   CheckCircle,
@@ -19,24 +19,39 @@ import {
   DollarSign,
   Minus,
   Plus,
+  Swords,
+  Gamepad2,
+  Shield,
+  SmilePlus,
+  User,
+  Monitor,
+  AlertTriangle,
 } from "lucide-react";
-import { ANIMATION_TEMPLATES, getTemplate } from "@/lib/fighter-pack/templates";
+import { ANIMATION_TEMPLATES, ANIMATION_TYPE_MAP, getTemplate } from "@/lib/fighter-pack/templates";
 import { estimateFighterPackCost, formatCost } from "@/lib/ai/cost-estimator";
-import type { AIProvider, AnimationType } from "@/types";
+import type { AIProvider, AnimationType, CharacterStyle } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string }[] = [
   { value: "openai", label: "OpenAI" },
   { value: "gemini", label: "Gemini" },
 ];
 
+const CHARACTER_STYLES: { value: CharacterStyle; label: string; icon: React.ElementType }[] = [
+  { value: "fighter", label: "Fighter", icon: Swords },
+  { value: "platformer", label: "Platformer", icon: Gamepad2 },
+  { value: "rpg", label: "RPG", icon: Shield },
+  { value: "chibi", label: "Chibi", icon: SmilePlus },
+  { value: "realistic", label: "Realistic", icon: User },
+  { value: "retro", label: "Retro", icon: Monitor },
+];
+
 export function FighterPackPanel() {
-  const [fighterName, setFighterName] = useState("");
-  const [description, setDescription] = useState("");
+  const [characterStyle, setCharacterStyle] = useState<CharacterStyle>("fighter");
   const [provider, setProvider] = useState<AIProvider>("openai");
   const [quality, setQuality] = useState<"low" | "medium" | "high">("medium");
   const [keyFramesOnly, setKeyFramesOnly] = useState(true);
   const [selectedAnims, setSelectedAnims] = useState<AnimationType[]>(
-    ANIMATION_TEMPLATES.map((t) => t.type)
+    ANIMATION_TYPE_MAP.fighter
   );
   const [frameCountOverrides, setFrameCountOverrides] = useState<Partial<Record<AnimationType, number>>>(
     {}
@@ -48,11 +63,24 @@ export function FighterPackPanel() {
   const batchProgress = useAIStore((s) => s.batchProgress);
   const setIsGenerating = useAIStore((s) => s.setIsGenerating);
   const updateBatchProgress = useAIStore((s) => s.updateBatchProgress);
+  const baseCharacter = useAIStore((s) => s.baseCharacter);
 
   const canvasWidth = useEditorStore((s) => s.canvasWidth);
   const canvasHeight = useEditorStore((s) => s.canvasHeight);
+  const settingsAnalysisModel = useSettingsStore((s) => s.analysisModel);
 
   const costEstimate = estimateFighterPackCost(provider, selectedAnims, keyFramesOnly, quality, undefined, undefined, frameCountOverrides);
+
+  /** Available animation templates filtered by current character style */
+  const availableTemplates = ANIMATION_TEMPLATES.filter((t) =>
+    ANIMATION_TYPE_MAP[characterStyle].includes(t.type)
+  );
+
+  function handleStyleChange(style: CharacterStyle) {
+    setCharacterStyle(style);
+    // Reset selected animations to the new style's defaults
+    setSelectedAnims(ANIMATION_TYPE_MAP[style]);
+  }
 
   function toggleAnim(type: AnimationType) {
     setSelectedAnims((prev) =>
@@ -60,8 +88,12 @@ export function FighterPackPanel() {
     );
   }
 
+  // Derive effective name/description from base character
+  const effectiveName = baseCharacter?.characterName || baseCharacter?.prompt || "";
+  const effectiveDescription = baseCharacter?.prompt || "";
+
   async function startGeneration() {
-    if (!fighterName.trim() || !description.trim() || isGenerating) return;
+    if (!effectiveName || !effectiveDescription || isGenerating) return;
 
     setIsGenerating(true);
     setFramePreviews(new Map());
@@ -75,8 +107,8 @@ export function FighterPackPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fighterName: fighterName.trim(),
-          description: description.trim(),
+          fighterName: effectiveName,
+          description: effectiveDescription,
           provider,
           quality,
           keyFramesOnly,
@@ -84,12 +116,14 @@ export function FighterPackPanel() {
           width: canvasWidth,
           height: canvasHeight,
           frameCountOverrides,
+          baseCharacterImage: baseCharacter?.imageData ?? undefined,
+          analysisModel: settingsAnalysisModel,
         }),
       });
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || "Fighter pack generation failed");
+        throw new Error(err.error || "Pack generation failed");
       }
 
       // Stream progress and collect image data
@@ -234,30 +268,61 @@ export function FighterPackPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-2">
-        <Swords className="h-4 w-4 text-accent" />
-        <span className="text-sm font-medium">Fighter Pack Generator</span>
+        <Package className="h-4 w-4 text-accent" />
+        <span className="text-sm font-medium">Animation Packs</span>
       </div>
 
-      {/* Fighter info */}
+      {/* Base character reference */}
+      {baseCharacter ? (
+        <div className="flex items-center gap-2 rounded-md border border-green-800 bg-green-950/40 px-2.5 py-1.5">
+          <img
+            src={`data:image/png;base64,${baseCharacter.imageData}`}
+            alt="Base character"
+            className="w-10 h-10 rounded border border-border"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <div className="flex-1 min-w-0">
+            <span className="text-xs text-green-400 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Base character
+            </span>
+            <p className="text-[10px] text-muted truncate">{baseCharacter.prompt}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-md border border-amber-800 bg-amber-950/30 px-2.5 py-2 text-xs text-amber-400">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>Generate a character in Character Concept first</span>
+        </div>
+      )}
+
+      {/* Character type selector */}
       <div>
-        <Label>Fighter Name</Label>
-        <Input
-          value={fighterName}
-          onChange={(e) => setFighterName(e.target.value)}
-          placeholder="e.g. Shadow Ninja"
-          className="mt-1"
-        />
+        <Label>Character Type</Label>
+        <div className="grid grid-cols-3 gap-1.5 mt-1">
+          {CHARACTER_STYLES.map((style) => {
+            const Icon = style.icon;
+            const active = characterStyle === style.value;
+            return (
+              <button
+                key={style.value}
+                onClick={() => !isGenerating && handleStyleChange(style.value)}
+                disabled={isGenerating}
+                className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-1.5 text-[10px] transition-colors ${
+                  active
+                    ? "bg-accent/30 border-accent text-accent"
+                    : "bg-surface/50 border-border text-muted hover:border-muted hover:text-foreground"
+                } disabled:opacity-50`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {style.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div>
-        <Label>Description</Label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the fighter's appearance, style, colors..."
-          className="mt-1 w-full h-20 rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 resize-none"
-        />
-      </div>
+      {/* Character info is defined in the Character Concept tab */}
 
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -290,9 +355,9 @@ export function FighterPackPanel() {
           type="checkbox"
           checked={keyFramesOnly}
           onChange={(e) => setKeyFramesOnly(e.target.checked)}
-          className="accent-indigo-500"
+          className="accent-accent"
         />
-        <span className="text-xs text-zinc-300">
+        <span className="text-xs text-foreground">
           Key frames only (saves cost, interpolate rest)
         </span>
       </label>
@@ -304,18 +369,18 @@ export function FighterPackPanel() {
           <button
             onClick={() =>
               setSelectedAnims(
-                selectedAnims.length === ANIMATION_TEMPLATES.length
+                selectedAnims.length === availableTemplates.length
                   ? []
-                  : ANIMATION_TEMPLATES.map((t) => t.type)
+                  : availableTemplates.map((t) => t.type)
               )
             }
-            className="text-[10px] text-indigo-400 hover:text-indigo-300"
+            className="text-[10px] text-accent hover:text-accent-hover"
           >
-            {selectedAnims.length === ANIMATION_TEMPLATES.length ? "Deselect All" : "Select All"}
+            {selectedAnims.length === availableTemplates.length ? "Deselect All" : "Select All"}
           </button>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
-          {ANIMATION_TEMPLATES.map((tmpl) => {
+          {availableTemplates.map((tmpl) => {
             const selected = selectedAnims.includes(tmpl.type);
             const progress = batchProgress.get(tmpl.type);
             const customCount = frameCountOverrides[tmpl.type] ?? tmpl.defaultFrameCount;
@@ -325,8 +390,8 @@ export function FighterPackPanel() {
                 key={tmpl.type}
                 className={`rounded-md border transition-colors ${
                   selected
-                    ? "bg-zinc-700/60 text-zinc-200 border-zinc-600"
-                    : "bg-zinc-800/50 text-zinc-500 border-transparent"
+                    ? "bg-surface-hover/60 text-foreground border-border"
+                    : "bg-surface/50 text-muted border-transparent"
                 }`}
               >
                 {/* Toggle row */}
@@ -342,14 +407,14 @@ export function FighterPackPanel() {
                         <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
                       )
                     ) : (
-                      <Loader2 className="h-3 w-3 animate-spin text-indigo-400 shrink-0" />
+                      <Loader2 className="h-3 w-3 animate-spin text-accent shrink-0" />
                     )
                   ) : (
                     <div
                       className={`w-3 h-3 rounded-sm shrink-0 border ${
                         selected
-                          ? "bg-indigo-500 border-indigo-500"
-                          : "border-zinc-600"
+                          ? "bg-accent border-accent"
+                          : "border-border"
                       }`}
                     />
                   )}
@@ -362,7 +427,7 @@ export function FighterPackPanel() {
                     {framePreviews.get(tmpl.type)!.slice(0, 4).map((b64, i) => (
                       <div
                         key={i}
-                        className="w-8 h-8 rounded border border-zinc-700 bg-zinc-950 overflow-hidden flex items-center justify-center"
+                        className="w-8 h-8 rounded border border-border bg-surface-alt overflow-hidden flex items-center justify-center"
                       >
                         <img
                           src={`data:image/png;base64,${b64}`}
@@ -373,7 +438,7 @@ export function FighterPackPanel() {
                       </div>
                     ))}
                     {(framePreviews.get(tmpl.type)?.length ?? 0) > 4 && (
-                      <span className="text-[9px] text-zinc-500 self-center">+{framePreviews.get(tmpl.type)!.length - 4}</span>
+                      <span className="text-[9px] text-muted self-center">+{framePreviews.get(tmpl.type)!.length - 4}</span>
                     )}
                   </div>
                 )}
@@ -388,11 +453,11 @@ export function FighterPackPanel() {
                       }
                     }}
                     disabled={isGenerating || customCount <= 1}
-                    className="w-4 h-4 rounded flex items-center justify-center bg-zinc-800 hover:bg-zinc-600 text-zinc-400 transition-colors disabled:opacity-30"
+                    className="w-4 h-4 rounded flex items-center justify-center bg-surface hover:bg-surface-hover text-muted transition-colors disabled:opacity-30"
                   >
                     <Minus className="h-2.5 w-2.5" />
                   </button>
-                  <span className="w-5 text-center text-[10px] font-mono text-zinc-300 tabular-nums">
+                  <span className="w-5 text-center text-[10px] font-mono text-foreground tabular-nums">
                     {customCount}
                   </span>
                   <button
@@ -403,11 +468,11 @@ export function FighterPackPanel() {
                       }
                     }}
                     disabled={isGenerating || customCount >= 30}
-                    className="w-4 h-4 rounded flex items-center justify-center bg-zinc-800 hover:bg-zinc-600 text-zinc-400 transition-colors disabled:opacity-30"
+                    className="w-4 h-4 rounded flex items-center justify-center bg-surface hover:bg-surface-hover text-muted transition-colors disabled:opacity-30"
                   >
                     <Plus className="h-2.5 w-2.5" />
                   </button>
-                  <span className="text-[9px] text-zinc-500 ml-0.5">f</span>
+                  <span className="text-[9px] text-muted ml-0.5">f</span>
                 </div>
               </div>
             );
@@ -416,17 +481,17 @@ export function FighterPackPanel() {
       </div>
 
       {/* Cost estimate */}
-      <div className="bg-zinc-800 rounded-md p-2 space-y-1">
+      <div className="bg-surface rounded-md p-2 space-y-1">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-zinc-400 flex items-center gap-1">
+          <span className="text-muted flex items-center gap-1">
             <DollarSign className="h-3 w-3" />
             Estimated Total
           </span>
-          <span className="text-zinc-200 font-medium">
+          <span className="text-foreground font-medium">
             {formatCost(costEstimate.estimatedCost)}
           </span>
         </div>
-        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+        <div className="flex items-center justify-between text-[10px] text-muted">
           <span>
              {selectedAnims.length} animations, ~{costEstimate.generationCount} frames
           </span>
@@ -440,7 +505,7 @@ export function FighterPackPanel() {
       <Button
         className="w-full"
         onClick={startGeneration}
-        disabled={isGenerating || !fighterName.trim() || !description.trim() || selectedAnims.length === 0}
+        disabled={isGenerating || !effectiveName || !effectiveDescription || selectedAnims.length === 0}
       >
         {isGenerating ? (
           <>
@@ -450,7 +515,7 @@ export function FighterPackPanel() {
         ) : (
           <>
             <Play className="h-4 w-4" />
-            Generate Fighter Pack
+            Generate Pack
           </>
         )}
       </Button>
@@ -458,7 +523,7 @@ export function FighterPackPanel() {
       {/* Overall progress */}
       {isGenerating && batchProgress.size > 0 && (
         <div>
-          <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
+          <div className="flex items-center justify-between text-xs text-muted mb-1">
             <span>Overall Progress</span>
             <span>
               {Array.from(batchProgress.values()).filter((v) => v >= 100).length}/
