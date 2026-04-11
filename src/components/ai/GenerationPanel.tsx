@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useAIStore } from "@/stores/ai-store";
 import { useEditorStore } from "@/stores/editor-store";
 import { useProjectStore } from "@/stores/project-store";
@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, Loader2, DollarSign, Image as ImageIcon, CheckCircle, X } from "lucide-react";
+import { Sparkles, Loader2, DollarSign, Image as ImageIcon, CheckCircle, X, Upload } from "lucide-react";
 import type { AIProvider, GeminiModel, OpenAIModel, SpriteSize } from "@/types";
 import { SPRITE_SIZES } from "@/types";
 import { estimateSingleCost, formatCost } from "@/lib/ai/cost-estimator";
 import { GEMINI_MODELS } from "@/lib/ai/gemini-service";
 import { OPENAI_MODELS } from "@/lib/ai/openai-service";
+import { downscale, removeBackground, base64ToPixelData } from "@/lib/ai/pixelizer";
 
 const PROVIDERS: { value: AIProvider; label: string }[] = [
   { value: "openai", label: "OpenAI (gpt-image-1)" },
@@ -33,6 +34,10 @@ export function GenerationPanel() {
   const [provider, setProvider] = useState<AIProvider>("openai");
   const [quality, setQuality] = useState<"low" | "medium" | "high">("medium");
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
+  const [uploadPixelise, setUploadPixelise] = useState(true);
+  const [uploadRemoveBg, setUploadRemoveBg] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isGenerating = useAIStore((s) => s.isGenerating);
   const generationProgress = useAIStore((s) => s.generationProgress);
@@ -53,6 +58,83 @@ export function GenerationPanel() {
   const setCanvasSize = useEditorStore((s) => s.setCanvasSize);
 
   const cost = estimateSingleCost(provider, quality, provider === "gemini" ? geminiModel : undefined, provider === "openai" ? openaiModel : undefined);
+
+  // Process uploaded image through pixelizer when settings change
+  const processUploadedImage = useCallback(async () => {
+    if (!uploadedImageBase64) return;
+    try {
+      const { data, width, height } = await base64ToPixelData(uploadedImageBase64);
+      let processed = data;
+
+      if (uploadPixelise) {
+        processed = downscale(processed, width, height, canvasWidth, canvasHeight);
+      }
+
+      if (uploadRemoveBg) {
+        const w = uploadPixelise ? canvasWidth : width;
+        const h = uploadPixelise ? canvasHeight : height;
+        processed = removeBackground(processed);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        const copy = new Uint8ClampedArray(processed.length);
+        copy.set(processed);
+        const imageData = new ImageData(copy, w, h);
+        ctx.putImageData(imageData, 0, 0);
+        const base64 = canvas.toDataURL("image/png").split(",")[1];
+        setReferenceImage(`data:image/png;base64,${base64}`);
+      } else if (uploadPixelise) {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        const ctx = canvas.getContext("2d")!;
+        const copy = new Uint8ClampedArray(processed.length);
+        copy.set(processed);
+        const imageData = new ImageData(copy, canvasWidth, canvasHeight);
+        ctx.putImageData(imageData, 0, 0);
+        const base64 = canvas.toDataURL("image/png").split(",")[1];
+        setReferenceImage(`data:image/png;base64,${base64}`);
+      } else {
+        setReferenceImage(`data:image/png;base64,${uploadedImageBase64}`);
+      }
+    } catch (err) {
+      console.error("Image processing failed:", err);
+    }
+  }, [uploadedImageBase64, uploadPixelise, uploadRemoveBg, canvasWidth, canvasHeight]);
+
+  useEffect(() => {
+    if (uploadedImageBase64) {
+      processUploadedImage();
+    }
+  }, [uploadedImageBase64, processUploadedImage]);
+
+  const handleFileSelect = useCallback(
+    (file: File) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.includes(",") ? result.split(",")[1] : result;
+        setUploadedImageBase64(base64);
+      };
+      reader.readAsDataURL(file);
+    },
+    []
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) handleFileSelect(file);
+    },
+    [handleFileSelect]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
 
   async function handleGenerate() {
     if (!prompt.trim() || isGenerating) return;
@@ -173,30 +255,19 @@ export function GenerationPanel() {
     img.src = imageUrl;
   }
 
-  function handleReferenceUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setReferenceImage(dataUrl);
-
-      // Strip data URL prefix to get raw base64 for the AI store
-      const base64 = dataUrl.replace(/^data:image\/[^;]+;base64,/, "");
-
-      // Set uploaded image as the base character for animation packs
-      setBaseCharacter({
-        imageData: base64,
-        characterName: characterName.trim(),
-        prompt: prompt.trim() || "Uploaded reference",
-        provider,
-      });
-
-      // Apply the uploaded image to the editor canvas as the base
-      applyGeneratedImage(dataUrl);
-    };
-    reader.readAsDataURL(file);
-  }
+  // When reference image changes (from processing), apply to canvas and set as base character
+  useEffect(() => {
+    if (!referenceImage) return;
+    const base64 = referenceImage.replace(/^data:image\/[^;]+;base64,/, "");
+    setBaseCharacter({
+      imageData: base64,
+      characterName: characterName.trim(),
+      prompt: prompt.trim() || "Uploaded reference",
+      provider,
+    });
+    applyGeneratedImage(referenceImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referenceImage]);
 
   return (
     <div className="space-y-4">
@@ -293,13 +364,13 @@ export function GenerationPanel() {
         </div>
       )}
 
-      {/* Prompt */}
+      {/* Character Description */}
       <div>
-        <Label>Prompt</Label>
+        <Label>Character Description</Label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe your character sprite... e.g. 'A ninja warrior in fighting stance, pixel art style, side view'"
+          placeholder="Describe the character's appearance in detail: body type, clothing, armor, weapons, colors, distinguishing features..."
           className="mt-1 w-full h-24 rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border resize-none"
         />
       </div>
@@ -317,34 +388,76 @@ export function GenerationPanel() {
 
       {/* Reference image */}
       <div>
-        <Label>Reference Image (optional)</Label>
-        <div className="mt-1 flex items-center gap-2">
-          <label className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-surface text-xs text-foreground cursor-pointer hover:bg-surface-hover">
-            <ImageIcon className="h-3.5 w-3.5" />
-            {referenceImage ? "Change" : "Upload"}
+        <Label>Start from Existing Image (optional)</Label>
+        <p className="text-xs text-muted mt-0.5 mb-2">
+          Upload a character image to use as the base. It will be pixelised and cleaned up automatically.
+        </p>
+        {uploadedImageBase64 ? (
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface/50">
+            <div className="w-16 h-16 rounded border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
+              <img
+                src={`data:image/png;base64,${uploadedImageBase64}`}
+                alt="Uploaded character"
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-green-400" />
+                <span className="text-xs text-foreground">Image uploaded</span>
+                <button
+                  onClick={() => {
+                    setUploadedImageBase64(null);
+                    setReferenceImage(null);
+                  }}
+                  className="ml-auto p-1 rounded hover:bg-surface-hover text-muted hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uploadPixelise}
+                  onChange={(e) => setUploadPixelise(e.target.checked)}
+                  className="rounded border-border"
+                />
+                <span className="text-xs text-muted">Pixelise to sprite size</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uploadRemoveBg}
+                  onChange={(e) => setUploadRemoveBg(e.target.checked)}
+                  className="rounded border-border"
+                />
+                <span className="text-xs text-muted">Remove background (transparent PNG)</span>
+              </label>
+            </div>
+          </div>
+        ) : (
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed border-border bg-surface/50 hover:border-muted hover:bg-surface-hover cursor-pointer transition-colors"
+          >
+            <Upload className="h-6 w-6 text-muted" />
+            <span className="text-xs text-muted">
+              Drop an image here or click to browse
+            </span>
+            <span className="text-[10px] text-muted">PNG, JPG, or WebP</span>
             <input
+              ref={fileInputRef}
               type="file"
-              accept="image/*"
-              onChange={handleReferenceUpload}
+              accept="image/png,image/jpeg,image/webp"
               className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileSelect(file);
+              }}
             />
-          </label>
-          {referenceImage && (
-            <button
-              onClick={() => setReferenceImage(null)}
-              className="text-xs text-muted hover:text-foreground"
-            >
-              Remove
-            </button>
-          )}
-        </div>
-        {referenceImage && (
-          <img
-            src={referenceImage}
-            alt="Reference"
-            className="mt-1 w-16 h-16 rounded border border-border object-cover"
-            style={{ imageRendering: "pixelated" }}
-          />
+          </div>
         )}
       </div>
 

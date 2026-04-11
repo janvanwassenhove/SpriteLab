@@ -21,15 +21,21 @@ export const WIZARD_STEPS: WizardStep[] = [
 export type ArtStyle =
   | "pixel-16"
   | "pixel-32"
+  | "pixel-48"
   | "pixel-64"
-  | "pixel-128";
+  | "pixel-96"
+  | "pixel-128"
+  | "pixel-256";
 
 function getSpriteSize(artStyle: ArtStyle): SpriteSize {
   const map: Record<ArtStyle, SpriteSize> = {
     "pixel-16": 16,
     "pixel-32": 32,
+    "pixel-48": 48,
     "pixel-64": 64,
+    "pixel-96": 96,
     "pixel-128": 128,
+    "pixel-256": 256,
   };
   return map[artStyle];
 }

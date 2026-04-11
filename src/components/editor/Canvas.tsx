@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
+import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
 import { useProjectStore } from "@/stores/project-store";
 import { CanvasEngine } from "@/lib/canvas/engine";
@@ -413,9 +414,41 @@ export function Canvas() {
         }}
         onWheel={handleWheel}
       />
-      {/* Zoom indicator */}
-      <div className="absolute bottom-2 right-2 bg-surface/80 px-2 py-0.5 rounded text-xs text-muted font-mono">
-        {zoom}x
+      {/* Zoom controls */}
+      <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-surface/80 rounded px-1 py-0.5">
+        <button
+          type="button"
+          className="p-1 rounded hover:bg-surface-alt text-muted hover:text-foreground transition-colors"
+          onClick={() => setZoom(Math.max(1, zoom - 1))}
+          title="Zoom out"
+        >
+          <ZoomOut className="w-3.5 h-3.5" />
+        </button>
+        <span className="text-xs text-muted font-mono min-w-[3ch] text-center">{zoom}x</span>
+        <button
+          type="button"
+          className="p-1 rounded hover:bg-surface-alt text-muted hover:text-foreground transition-colors"
+          onClick={() => setZoom(Math.min(64, zoom + 1))}
+          title="Zoom in"
+        >
+          <ZoomIn className="w-3.5 h-3.5" />
+        </button>
+        <div className="w-px h-4 bg-border mx-0.5" />
+        <button
+          type="button"
+          className="p-1 rounded hover:bg-surface-alt text-muted hover:text-foreground transition-colors"
+          onClick={() => {
+            const fitZoom = Math.max(1, Math.min(64, Math.floor(Math.min(
+              containerSize.w / canvasWidth,
+              containerSize.h / canvasHeight
+            ))));
+            setZoom(fitZoom);
+            setPanOffset({ x: 0, y: 0 });
+          }}
+          title="Fit to window"
+        >
+          <Maximize className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );

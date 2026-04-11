@@ -93,13 +93,16 @@ export type CharacterStyle =
 
 // ---- Sprite Size ----
 
-export type SpriteSize = 16 | 32 | 64 | 128;
+export type SpriteSize = 16 | 32 | 48 | 64 | 96 | 128 | 256;
 
 export const SPRITE_SIZES: { value: SpriteSize; label: string }[] = [
   { value: 16, label: "16×16 — Tiny" },
   { value: 32, label: "32×32 — Small" },
+  { value: 48, label: "48×48 — Compact" },
   { value: 64, label: "64×64 — Medium" },
+  { value: 96, label: "96×96 — Detailed" },
   { value: 128, label: "128×128 — Large" },
+  { value: 256, label: "256×256 — HD" },
 ];
 
 // ---- Fighter Pack ----

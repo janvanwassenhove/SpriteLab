@@ -20,16 +20,7 @@ import { Select } from "@/components/ui/select";
 import { listProjectsLocal } from "@/lib/storage/local-db";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
-
-const SPRITE_SIZES = [
-  { value: "16", label: "16×16" },
-  { value: "32", label: "32×32" },
-  { value: "48", label: "48×48" },
-  { value: "64", label: "64×64" },
-  { value: "96", label: "96×96" },
-  { value: "128", label: "128×128" },
-  { value: "256", label: "256×256" },
-];
+import { SPRITE_SIZES } from "@/types";
 
 interface ProjectEntry {
   id: string;
@@ -241,7 +232,7 @@ export default function HomePage() {
             <Select
               value={spriteSize}
               onChange={(e) => setSpriteSize(e.target.value)}
-              options={SPRITE_SIZES}
+              options={SPRITE_SIZES.map((s) => ({ value: String(s.value), label: s.label }))}
               className="mt-1"
             />
           </div>

@@ -53,7 +53,7 @@ export async function generateImage(
       client.images.edit({
         model: "gpt-image-1",
         image: imageFile,
-        prompt: `${retryPrompt} STRICT RULES: 1) IDENTICAL clothing/armor — same items, same colors. 2) IDENTICAL skin, hair, and eye colors. 3) IDENTICAL body proportions and outline. 4) Use ONLY colors from the reference. 5) ONLY change the pose/action as described. Do NOT modify the character's visual design.`,
+        prompt: `${retryPrompt} STRICT RULES: 1) IDENTICAL clothing/armor — same items, same colors. 2) IDENTICAL skin, hair, and eye colors. 3) IDENTICAL body proportions and outline. 4) Use ONLY colors from the reference. 5) ONLY change the pose/action as described. Do NOT modify the character's visual design. 6) Do NOT add any text, letters, words, numbers, labels, or watermarks — output only the character artwork.`,
         size,
       }),
       spritePrompt
@@ -164,7 +164,7 @@ export async function editImage(
 }
 
 function buildSpritePrompt(userPrompt: string): string {
-  return `Pixel art sprite for a stylized 2D fighting game. Side view, transparent background, clean pixel art style with clear outlines. Non-graphic action only, no blood or injury detail. ${userPrompt}`;
+  return `Pixel art sprite for a stylized 2D fighting game. Side view, transparent background, clean pixel art style with clear outlines. Non-graphic action only, no blood or injury detail. Do not include any text, letters, words, or labels in the image. ${userPrompt}`;
 }
 
 async function withSafetyRetry<T>(
@@ -254,7 +254,7 @@ Be extremely precise with hex colors. Every visible element must be listed. Unde
     try {
       const response = await client.chat.completions.create({
         model,
-        max_tokens: 500,
+        max_completion_tokens: 500,
         messages: [
           {
             role: "user",

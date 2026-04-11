@@ -26,10 +26,16 @@ import {
   User,
   Monitor,
   AlertTriangle,
+  ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import { ANIMATION_TEMPLATES, ANIMATION_TYPE_MAP, getTemplate } from "@/lib/fighter-pack/templates";
 import { estimateFighterPackCost, formatCost } from "@/lib/ai/cost-estimator";
-import type { AIProvider, AnimationType, CharacterStyle } from "@/types";
+import { evaluateFullConsistency } from "@/lib/ai/consistency-evaluator";
+import type { FrameInput } from "@/lib/ai/consistency-evaluator";
+import { enforcePalette } from "@/lib/fighter-pack/consistency";
+import { ConsistencyReportView } from "@/components/consistency/ConsistencyReport";
+import type { AIProvider, AnimationType, CharacterStyle, ConsistencyReport, ConsistencyIssue } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string }[] = [
   { value: "openai", label: "OpenAI" },
@@ -58,6 +64,11 @@ export function FighterPackPanel() {
   );
   const [framePreviews, setFramePreviews] = useState<Map<string, string[]>>(new Map());
   const [errorAnims, setErrorAnims] = useState<Set<string>>(new Set());
+  const [consistencyReport, setConsistencyReport] = useState<ConsistencyReport | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [aiCheckingFrames, setAICheckingFrames] = useState<Set<string>>(new Set());
+  // Store raw pixel data per anim/frame for consistency evaluation & auto-fix
+  const [generatedPixelData, setGeneratedPixelData] = useState<Map<string, Map<number, Uint8ClampedArray>>>(new Map());
 
   const isGenerating = useAIStore((s) => s.isGenerating);
   const batchProgress = useAIStore((s) => s.batchProgress);
@@ -175,7 +186,11 @@ export function FighterPackPanel() {
 
       // Build animations from collected image data
       if (frameImages.size > 0) {
-        await buildAnimationsFromImages(frameImages);
+        const pixelDataMap = await buildAnimationsFromImages(frameImages);
+        // Run consistency evaluation automatically
+        if (pixelDataMap && baseCharacter?.imageData) {
+          await runConsistencyEvaluation(pixelDataMap, baseCharacter.imageData);
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Generation failed";
@@ -185,25 +200,29 @@ export function FighterPackPanel() {
     }
   }
 
-  /** Convert base64 images into pixel data and add as animations to the project */
+  /** Convert base64 images into pixel data and add as animations to the project.
+   *  Returns a map of pixel data per animation type for consistency evaluation. */
   async function buildAnimationsFromImages(
     frameImages: Map<string, Map<number, string>>
-  ) {
+  ): Promise<Map<string, Map<number, Uint8ClampedArray>>> {
     const { addAnimation, setCurrentAnimation } = useProjectStore.getState();
     const w = canvasWidth;
     const h = canvasHeight;
 
     let firstAnim: import("@/types").Animation | null = null;
+    const pixelDataMap = new Map<string, Map<number, Uint8ClampedArray>>();
 
     for (const [animType, frames] of frameImages) {
       const template = getTemplate(animType as AnimationType);
       const sortedIndices = Array.from(frames.keys()).sort((a, b) => a - b);
 
       const builtFrames: import("@/types").Frame[] = [];
+      const animPixelData = new Map<number, Uint8ClampedArray>();
 
       for (const frameIndex of sortedIndices) {
         const base64 = frames.get(frameIndex)!;
         const pixelData = await base64ToPixelData(base64, w, h);
+        animPixelData.set(frameIndex, pixelData);
 
         builtFrames.push({
           id: uuid(),
@@ -224,6 +243,8 @@ export function FighterPackPanel() {
         });
       }
 
+      pixelDataMap.set(animType, animPixelData);
+
       if (builtFrames.length > 0) {
         const anim: import("@/types").Animation = {
           id: uuid(),
@@ -236,9 +257,189 @@ export function FighterPackPanel() {
       }
     }
 
+    setGeneratedPixelData(pixelDataMap);
+
     // Switch to the first generated animation so the user sees results
     if (firstAnim) {
       setCurrentAnimation(firstAnim);
+    }
+
+    return pixelDataMap;
+  }
+
+  /** Run full consistency evaluation against the base character */
+  async function runConsistencyEvaluation(
+    pixelDataMap: Map<string, Map<number, Uint8ClampedArray>>,
+    baseImageData: string
+  ) {
+    setIsEvaluating(true);
+    setConsistencyReport(null);
+
+    try {
+      const w = canvasWidth;
+      const h = canvasHeight;
+      const basePixels = await base64ToPixelData(baseImageData, w, h);
+
+      const allFrames: FrameInput[] = [];
+      for (const [animType, frames] of pixelDataMap) {
+        for (const [frameIndex, data] of frames) {
+          allFrames.push({
+            animationType: animType as AnimationType,
+            frameIndex,
+            data,
+          });
+        }
+      }
+
+      const report = evaluateFullConsistency(allFrames, basePixels, w, h);
+      setConsistencyReport(report);
+    } catch (err) {
+      console.error("Consistency evaluation failed:", err);
+    } finally {
+      setIsEvaluating(false);
+    }
+  }
+
+  /** Auto-fix a single frame by enforcing the base sprite palette */
+  function handleAutoFixFrame(animType: AnimationType, frameIndex: number) {
+    if (!consistencyReport) return;
+    const palette = consistencyReport.baseSpritePalette;
+    if (palette.length === 0) return;
+
+    const animData = generatedPixelData.get(animType);
+    const frameData = animData?.get(frameIndex);
+    if (!frameData) return;
+
+    const paletteObj = { id: "base", name: "Base Palette", colors: palette };
+    const fixed = enforcePalette(frameData, paletteObj);
+
+    // Update stored pixel data
+    const newPixelData = new Map(generatedPixelData);
+    const newAnimData = new Map(animData!);
+    newAnimData.set(frameIndex, fixed);
+    newPixelData.set(animType, newAnimData);
+    setGeneratedPixelData(newPixelData);
+
+    // Update the corresponding project animation frame
+    const { project } = useProjectStore.getState();
+    if (project) {
+      const template = getTemplate(animType);
+      const anim = project.animations.find((a) => a.name === template.label);
+      // Map frame index to the sorted position in the animation
+      if (anim) {
+        const sortedIndices = Array.from(animData!.keys()).sort((a, b) => a - b);
+        const position = sortedIndices.indexOf(frameIndex);
+        const frame = anim.frames[position];
+        if (frame) {
+          const layer = frame.layers.find((l) => l.visible) ?? frame.layers[0];
+          if (layer) {
+            useProjectStore.getState().updateFrame(frame.id, {
+              layers: frame.layers.map((l) =>
+                l.id === layer.id ? { ...l, data: fixed } : l
+              ),
+            });
+          }
+        }
+      }
+    }
+
+    // Re-evaluate
+    if (baseCharacter?.imageData) {
+      runConsistencyEvaluation(newPixelData, baseCharacter.imageData);
+    }
+  }
+
+  /** Auto-fix all flagged frames */
+  function handleAutoFixAll(animType: AnimationType) {
+    if (!consistencyReport) return;
+    const animResult = consistencyReport.animations.find((a) => a.animationType === animType);
+    if (!animResult) return;
+    for (const fr of animResult.frameResults) {
+      if (fr.issues.length > 0) {
+        handleAutoFixFrame(animType, fr.frameIndex);
+      }
+    }
+  }
+
+  /** AI deep check for a single frame */
+  async function handleAICheckFrame(animType: AnimationType, frameIndex: number) {
+    const key = `${animType}-${frameIndex}`;
+    if (!baseCharacter?.imageData) return;
+
+    const animData = generatedPixelData.get(animType);
+    const frameData = animData?.get(frameIndex);
+    if (!frameData) return;
+
+    // Convert frame to base64
+    const frameBase64 = pixelDataToBase64(frameData, canvasWidth, canvasHeight);
+    if (!frameBase64) return;
+
+    setAICheckingFrames((prev) => new Set(prev).add(key));
+    try {
+      const response = await fetch("/api/ai/consistency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          frameImage: frameBase64,
+          baseImage: baseCharacter.imageData,
+          analysisModel: settingsAnalysisModel,
+        }),
+      });
+
+      if (!response.ok) throw new Error("AI check failed");
+      const data = await response.json();
+
+      // Merge AI issues into the report
+      if (consistencyReport) {
+        setConsistencyReport({
+          ...consistencyReport,
+          animations: consistencyReport.animations.map((anim) => {
+            if (anim.animationType !== animType) return anim;
+            return {
+              ...anim,
+              frameResults: anim.frameResults.map((fr) => {
+                if (fr.frameIndex !== frameIndex) return fr;
+                const newIssues: ConsistencyIssue[] = data.issues ?? [];
+                return {
+                  ...fr,
+                  issues: [
+                    ...fr.issues,
+                    ...newIssues.filter(
+                      (ni) =>
+                        !fr.issues.some(
+                          (ei) => ei.type === ni.type && ei.description === ni.description
+                        )
+                    ),
+                  ],
+                };
+              }),
+            };
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("AI check failed:", err);
+    } finally {
+      setAICheckingFrames((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
+  /** Convert pixel data to base64 PNG */
+  function pixelDataToBase64(data: Uint8ClampedArray, w: number, h: number): string | null {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      const imageData = new ImageData(new Uint8ClampedArray(data), w, h);
+      ctx.putImageData(imageData, 0, 0);
+      return canvas.toDataURL("image/png").split(",")[1];
+    } catch {
+      return null;
     }
   }
 
@@ -536,6 +737,60 @@ export function FighterPackPanel() {
                 (selectedAnims.length * 100)) *
               100
             }
+          />
+        </div>
+      )}
+
+      {/* Consistency evaluation loading */}
+      {isEvaluating && (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-surface p-3">
+          <Loader2 className="h-4 w-4 animate-spin text-accent" />
+          <span className="text-sm text-muted">Evaluating consistency...</span>
+        </div>
+      )}
+
+      {/* Consistency report */}
+      {consistencyReport && !isGenerating && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-accent" />
+              <span className="text-sm font-medium">Consistency Report</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => {
+                if (baseCharacter?.imageData && generatedPixelData.size > 0) {
+                  runConsistencyEvaluation(generatedPixelData, baseCharacter.imageData);
+                }
+              }}
+              disabled={isEvaluating}
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${isEvaluating ? "animate-spin" : ""}`} />
+              Re-evaluate
+            </Button>
+          </div>
+
+          <ConsistencyReportView
+            report={consistencyReport}
+            frameImagesByAnim={(() => {
+              const map = new Map<AnimationType, Map<number, string>>();
+              for (const [animType, frames] of generatedPixelData) {
+                const frameMap = new Map<number, string>();
+                for (const [frameIndex, data] of frames) {
+                  const b64 = pixelDataToBase64(data, canvasWidth, canvasHeight);
+                  if (b64) frameMap.set(frameIndex, b64);
+                }
+                map.set(animType as AnimationType, frameMap);
+              }
+              return map;
+            })()}
+            onAutoFixFrame={handleAutoFixFrame}
+            onAICheckFrame={handleAICheckFrame}
+            onAutoFixAll={handleAutoFixAll}
+            aiCheckingFrames={aiCheckingFrames}
           />
         </div>
       )}

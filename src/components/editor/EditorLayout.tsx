@@ -28,6 +28,7 @@ import { ExportDialog } from "@/components/export/ExportDialog";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
 import { useProjectStore } from "@/stores/project-store";
+import { useEditorStore } from "@/stores/editor-store";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { saveProjectFull } from "@/lib/storage/local-db";
 
@@ -54,6 +55,7 @@ export function EditorLayout() {
           }
         : state.project;
       await saveProjectFull(project);
+      useEditorStore.getState().setDirty(false);
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 1500);
     } catch {

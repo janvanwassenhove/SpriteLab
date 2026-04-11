@@ -66,7 +66,8 @@ export async function generateImage(
 4. IDENTICAL outline color and thickness
 5. IDENTICAL color palette — use ONLY the colors present in the reference
 6. ONLY change the POSE/ACTION as described in the text prompt
-7. Do NOT add, remove, or modify any clothing, accessories, or visual features`,
+7. Do NOT add, remove, or modify any clothing, accessories, or visual features
+8. Do NOT add any text, letters, words, numbers, labels, or watermarks — output only the character artwork`,
     });
   }
 
@@ -191,5 +192,5 @@ export function isGeminiAvailable(): boolean {
 }
 
 function buildSpritePrompt(userPrompt: string): string {
-  return `Create pixel art sprite for a 2D fighting game. Requirements: side view perspective, transparent background, clean pixel art style with visible individual pixels, clear outlines, limited color palette. ${userPrompt}`;
+  return `Create pixel art sprite for a 2D fighting game. Requirements: side view perspective, transparent background, clean pixel art style with visible individual pixels, clear outlines, limited color palette. Do not include any text, letters, words, or labels in the image. ${userPrompt}`;
 }

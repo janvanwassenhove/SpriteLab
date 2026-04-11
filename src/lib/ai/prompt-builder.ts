@@ -64,6 +64,7 @@ export function buildAnimationPrompt(
   sections.push(`• ONLY the body pose and limb positions change between frames`);
   sections.push(`• Use the EXACT same color palette — no new colors, no shifted hues`);
   sections.push(`• Same head-to-body ratio, limb thickness, and overall size`);
+  sections.push(`• Do NOT add any text, letters, words, numbers, labels, or watermarks to the image — the sprite must contain only the character artwork`);
 
   return sections.join('\n');
 }
